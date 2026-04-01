@@ -15,6 +15,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # ── Bosch Sensortec BNO055 C driver (external submodule) ────────────────────
 set(BNO055_DRIVER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/BNO055_driver)
@@ -61,6 +63,25 @@ target_link_libraries(${PROJECT_NAME}
 
 # Export hardware interface as plugin
 pluginlib_export_plugin_description_file(hardware_interface bno055_hardware_interface.xml)
+
+# ── BNO055 calibration node (standalone executable) ──────────────────────────
+add_executable(bno055_calib_node
+  src/bno055_calib_node.cpp
+)
+target_include_directories(bno055_calib_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  ${BNO055_DRIVER_DIR}
+)
+target_link_libraries(bno055_calib_node
+  bno055_driver
+  bno055_i2c
+  rclcpp::rclcpp
+  ${diagnostic_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+)
+install(TARGETS bno055_calib_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(TARGETS ${PROJECT_NAME} bno055_driver bno055_i2c
   DESTINATION lib
