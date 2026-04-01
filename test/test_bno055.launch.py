@@ -1,25 +1,10 @@
-# Copyright 2026 Aditya Kamath
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
-Launch integration test for bno055_hardware_interface with real I2C hardware.
+Launch integration test for bno055_hardware_interface.
 
 Launches the full ros2_control stack (robot_state_publisher, ros2_control_node,
-imu_sensor_broadcaster) against the physical BNO055 on /dev/i2c-1 at 0x28.
-
-All tests skip gracefully when the BNO055 is not detected so the suite can
-run safely in CI environments without the sensor attached.
+imu_sensor_broadcaster) against the physical BNO055 on /dev/i2c-1 at 0x28 when
+present, or in mock mode (enable_mock:=true) when the hardware is not detected,
+so the suite always runs in CI regardless of sensor availability.
 """
 
 import math
@@ -56,8 +41,6 @@ def _bno055_available() -> bool:
 
 BNO055_AVAILABLE = _bno055_available()
 
-_SKIP_REASON = 'BNO055 not detected at /dev/i2c-1:0x28 — skipping hardware launch test'
-
 
 # ── Launch description ────────────────────────────────────────────────────────
 
@@ -65,17 +48,11 @@ _SKIP_REASON = 'BNO055 not detected at /dev/i2c-1:0x28 — skipping hardware lau
 @launch_testing.markers.keep_alive
 def generate_test_description():
     """
-    Launch the bno055 stack against real hardware.
+    Launch the bno055 stack against real or mock hardware.
 
-    When hardware is absent we return a trivial description with only
-    ReadyToTest so that launch_testing doesn't fail before the test methods
-    get a chance to call self.skipTest().
+    When the BNO055 is absent the stack is launched with enable_mock:=true
+    so all tests run against the software stub rather than being skipped.
     """
-    if not BNO055_AVAILABLE:
-        return launch.LaunchDescription([
-            launch_testing.actions.ReadyToTest(),
-        ])
-
     from launch.actions import IncludeLaunchDescription
     from launch.launch_description_sources import PythonLaunchDescriptionSource
     from ament_index_python.packages import get_package_share_directory
@@ -83,13 +60,17 @@ def generate_test_description():
     pkg_share = get_package_share_directory('bno055_hardware_interface')
     bno055_launch = os.path.join(pkg_share, 'launch', 'bno055.launch.py')
 
+    launch_args = {
+        'i2c_bus':    '1',
+        'i2c_addr':   '28',
+        'axis_remap': 'P1',
+    }
+    if not BNO055_AVAILABLE:
+        launch_args['enable_mock'] = 'true'
+
     bno055 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(bno055_launch),
-        launch_arguments={
-            'i2c_bus':    '1',
-            'i2c_addr':   '28',
-            'axis_remap': 'P1',
-        }.items(),
+        launch_arguments=launch_args.items(),
     )
 
     return launch.LaunchDescription([
@@ -142,7 +123,11 @@ def _wait_for_controller_state(node, controller_name, timeout_sec=45.0):
 # ── Test class ────────────────────────────────────────────────────────────────
 
 class TestBNO055Launch(unittest.TestCase):
-    """Integration tests for the full BNO055 ros2_control stack."""
+    """
+    Integration tests for the full BNO055 ros2_control stack.
+
+    Uses mock mode when hardware is absent.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -153,8 +138,6 @@ class TestBNO055Launch(unittest.TestCase):
         rclpy.shutdown()
 
     def setUp(self):
-        if not BNO055_AVAILABLE:
-            self.skipTest(_SKIP_REASON)
         self.node = rclpy.create_node('test_bno055_launch_node')
 
     def tearDown(self):

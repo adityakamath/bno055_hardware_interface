@@ -1,17 +1,3 @@
-// Copyright 2026 Aditya Kamath
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -286,7 +272,7 @@ TEST_F(ExportStateInterfacesTest, InitialValuesAreIdentityQuaternion)
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Lifecycle transitions — require real I2C hardware, skip gracefully if absent
+// Lifecycle transitions — real hardware when available, mock mode otherwise
 // ════════════════════════════════════════════════════════════════════════════
 
 class HardwareLifecycleTest : public ::testing::Test
@@ -294,13 +280,12 @@ class HardwareLifecycleTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    if (!kBNO055Available) {
-      GTEST_SKIP() << "BNO055 not detected on /dev/i2c-" << kI2CBus
-                   << " at address 0x" << std::hex << kI2CAddr
-                   << " — skipping hardware lifecycle tests";
-    }
     hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
     auto info = make_valid_imu_info();
+    if (!kBNO055Available) {
+      // No hardware — use mock mode so the lifecycle tests still run
+      info.hardware_parameters["enable_mock"] = "true";
+    }
     ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
   }
 
@@ -346,12 +331,14 @@ TEST_F(HardwareLifecycleTest, ReconfigureAfterCleanupSucceeds)
   // Must create a fresh instance — re-init/configure the same object after cleanup
   hw_.reset();
   hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
-  ASSERT_EQ(hw_->on_init(make_valid_imu_info()), CallbackReturn::SUCCESS);
+  auto info2 = make_valid_imu_info();
+  if (!kBNO055Available) {info2.hardware_parameters["enable_mock"] = "true";}
+  ASSERT_EQ(hw_->on_init(info2), CallbackReturn::SUCCESS);
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// read() behavior — require real I2C hardware, skip gracefully if absent
+// read() behavior — real hardware when available, mock mode otherwise
 // ════════════════════════════════════════════════════════════════════════════
 
 class HardwareReadTest : public ::testing::Test
@@ -359,14 +346,14 @@ class HardwareReadTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    if (!kBNO055Available) {
-      GTEST_SKIP() << "BNO055 not detected on /dev/i2c-" << kI2CBus
-                   << " at address 0x" << std::hex << kI2CAddr
-                   << " — skipping hardware read tests";
-    }
-
     hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
-    ASSERT_EQ(hw_->on_init(make_valid_imu_info()), CallbackReturn::SUCCESS);
+    auto info = make_valid_imu_info();
+    if (!kBNO055Available) {
+      // No hardware — use mock mode so read() tests still run
+      // Values stay frozen at defaults: orientation=(0,0,0,1), vel/accel=0
+      info.hardware_parameters["enable_mock"] = "true";
+    }
+    ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
 
     // Export interfaces BEFORE configure — they point into hw_'s internal storage
     ifaces_ = hw_->export_state_interfaces();

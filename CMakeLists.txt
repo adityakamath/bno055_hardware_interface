@@ -116,8 +116,8 @@ if(BUILD_TESTING)
   # C++ unit / integration tests
   # - on_init validation (no hardware)
   # - export_state_interfaces (no hardware)
-  # - lifecycle transitions (requires BNO055 on /dev/i2c-1, skips gracefully)
-  # - read() sanity checks (requires BNO055 on /dev/i2c-1, skips gracefully)
+  # - lifecycle transitions (real hardware when available, mock mode otherwise)
+  # - read() sanity checks (real hardware when available, mock mode otherwise)
   ament_add_gtest(test_hardware_interface
     test/test_hardware_interface.cpp
   )
@@ -132,8 +132,8 @@ if(BUILD_TESTING)
     ${BNO055_DRIVER_DIR}
   )
 
-  # Python launch test — full stack against real BNO055 hardware.
-  # Skips all test cases when the sensor is absent so CI stays green.
+  # Python launch test — full stack against real BNO055 hardware or mock mode.
+  # Uses enable_mock:=true when the sensor is absent so CI always runs all tests.
   add_launch_test(test/test_bno055.launch.py)
 endif()
 
