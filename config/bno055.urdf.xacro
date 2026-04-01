@@ -6,6 +6,7 @@
   <xacro:arg name="i2c_addr"   default="28"/>   <!-- hex, no 0x prefix: 28 = 0x28 -->
   <xacro:arg name="axis_remap" default="P1"/>    <!-- P0-P7, see BNO055 datasheet Table 3-4 -->
   <xacro:arg name="enable_mock" default="false"/>
+  <xacro:arg name="calib_file"  default=""/>          <!-- Path to calibration YAML file (empty = uncalibrated startup) -->
 
   <!-- Robot links -->
   <link name="base_link"/>
@@ -40,6 +41,7 @@
       <!-- Sensor Configuration -->
       <param name="axis_remap">$(arg axis_remap)</param>     <!-- Axis placement config: P0-P7 (default: P1) -->
       <param name="enable_mock">$(arg enable_mock)</param>   <!-- Simulation mode, no hardware required (default: false) -->
+      <param name="calib_file">$(arg calib_file)</param>       <!-- Path to calibration YAML saved by bno055_calib_node (empty = none) -->
     </hardware>
 
     <sensor name="bno055">

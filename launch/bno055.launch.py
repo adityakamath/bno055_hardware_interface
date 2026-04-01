@@ -45,12 +45,18 @@ def generate_launch_description():
             default_value='false',
             description='Use mock/simulation mode (no hardware required)'
         ),
+        DeclareLaunchArgument(
+            'calib_file',
+            default_value='',
+            description='Path to calibration YAML file saved by bno055_calib_node (empty = none)'
+        ),
     ]
 
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_addr = LaunchConfiguration('i2c_addr')
     axis_remap = LaunchConfiguration('axis_remap')
     enable_mock = LaunchConfiguration('enable_mock')
+    calib_file = LaunchConfiguration('calib_file')
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -68,6 +74,8 @@ def generate_launch_description():
             'axis_remap:=', axis_remap,
             ' ',
             'enable_mock:=', enable_mock,
+            ' ',
+            'calib_file:=', calib_file,
         ]
     )
     robot_description = {

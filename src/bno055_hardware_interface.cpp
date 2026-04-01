@@ -1,17 +1,3 @@
-// Copyright 2026 Aditya Kamath
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 /** @file bno055_hardware_interface.cpp
  *
  * ros2_control SensorInterface for the Bosch BNO055 IMU over I2C.
@@ -106,6 +92,16 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     enable_mock_ = (v == "true" || v == "1");
   }
 
+  // calib_file (default: empty — no file, rely on in-sensor calibration)
+  if (info_.hardware_parameters.count("calib_file")) {
+    calib_file_ = info_.hardware_parameters.at("calib_file");
+    // Expand ~ to $HOME
+    if (!calib_file_.empty() && calib_file_[0] == '~') {
+      const char * home = std::getenv("HOME");
+      if (home) {calib_file_ = std::string(home) + calib_file_.substr(1);}
+    }
+  }
+
   if (info_.sensors.size() != 1) {
     RCLCPP_ERROR(logger_, "Expected exactly 1 <sensor> element, got %zu", info_.sensors.size());
     return hardware_interface::CallbackReturn::ERROR;
@@ -113,8 +109,9 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 
   RCLCPP_INFO(
     logger_,
-    "Configured: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s",
-    i2c_bus_, i2c_addr_, axis_remap_.c_str(), enable_mock_ ? "true" : "false");
+    "Configured: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s, calib_file=%s",
+    i2c_bus_, i2c_addr_, axis_remap_.c_str(), enable_mock_ ? "true" : "false",
+    calib_file_.empty() ? "(none)" : calib_file_.c_str());
 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -181,6 +178,20 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
     RCLCPP_WARN(logger_, "Failed to set accel unit to m/s^2 (err=%d)", comres);
   }
 
+  // Apply saved calibration offsets if a file was provided.
+  // Offsets must be written in CONFIG mode, before switching to NDOF.
+  if (!calib_file_.empty()) {
+    if (load_calib_offsets()) {
+      RCLCPP_INFO(logger_, "Calibration offsets loaded from %s", calib_file_.c_str());
+    } else {
+      RCLCPP_WARN(
+        logger_,
+        "Calibration file '%s' not found or unreadable — starting uncalibrated."
+        " Run bno055_calib_node to create it.",
+        calib_file_.c_str());
+    }
+  }
+
   // Axis remap: write { AXIS_MAP_CONFIG, AXIS_MAP_SIGN } directly via the
   // wired bus_write callback (same values as flynneva/bno055 P-code table)
   const auto & remap = kAxisRemap.at(axis_remap_);
@@ -202,6 +213,75 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
 
   RCLCPP_INFO(logger_, "BNO055 configured in NDOF fusion mode");
   return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+// ── load_calib_offsets: read YAML file and write offsets to sensor ───────────
+// Called in on_configure while the sensor is still in CONFIG mode.
+
+bool BNO055HardwareInterface::load_calib_offsets()
+{
+  std::ifstream f(calib_file_);
+  if (!f) {return false;}
+
+  std::unordered_map<std::string, int16_t> vals;
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') {continue;}
+    auto colon = line.find(':');
+    if (colon == std::string::npos) {continue;}
+    std::string key = line.substr(0, colon);
+    // trim trailing whitespace
+    while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) {
+      key.pop_back();
+    }
+    try {
+      vals[key] = static_cast<int16_t>(std::stoi(line.substr(colon + 1)));
+    } catch (...) {
+      continue;
+    }
+  }
+
+  auto get = [&](const std::string & k) -> int16_t {
+      auto it = vals.find(k);
+      return (it != vals.end()) ? it->second : int16_t(0);
+    };
+
+  bno055_accel_offset_t ao{};
+  ao.x = get("accel_offset_x");
+  ao.y = get("accel_offset_y");
+  ao.z = get("accel_offset_z");
+  ao.r = get("accel_radius");
+
+  bno055_gyro_offset_t go{};
+  go.x = get("gyro_offset_x");
+  go.y = get("gyro_offset_y");
+  go.z = get("gyro_offset_z");
+
+  bno055_mag_offset_t mo{};
+  mo.x = get("mag_offset_x");
+  mo.y = get("mag_offset_y");
+  mo.z = get("mag_offset_z");
+  mo.r = get("mag_radius");
+
+  bool ok =
+    (bno055_write_accel_offset(&ao) == BNO055_SUCCESS) &&
+    (bno055_write_gyro_offset(&go)  == BNO055_SUCCESS) &&
+    (bno055_write_mag_offset(&mo)   == BNO055_SUCCESS);
+
+  if (ok) {
+    RCLCPP_INFO(
+      logger_,
+      "  Accel offsets: x=%d y=%d z=%d  radius=%d", ao.x, ao.y, ao.z, ao.r);
+    RCLCPP_INFO(
+      logger_,
+      "  Gyro offsets:  x=%d y=%d z=%d", go.x, go.y, go.z);
+    RCLCPP_INFO(
+      logger_,
+      "  Mag offsets:   x=%d y=%d z=%d  radius=%d", mo.x, mo.y, mo.z, mo.r);
+  } else {
+    RCLCPP_ERROR(logger_, "Failed to write calibration offsets to sensor");
+  }
+  return ok;
 }
 
 // ── on_activate / on_deactivate / on_cleanup ─────────────────────────────────

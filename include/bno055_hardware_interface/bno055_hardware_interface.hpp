@@ -15,8 +15,11 @@
 #ifndef BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 #define BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,6 +51,11 @@ namespace bno055_hardware_interface
  *   - i2c_addr     : Hex I2C address, e.g. "0x28"             (default: "0x28")
  *   - axis_remap   : Placement config P0-P7 (datasheet §3.4)  (default: "P1")
  *   - enable_mock  : Skip real hardware, publish zeros         (default: "false")
+ *   - calib_file   : Path to YAML calibration file saved by
+ *                    bno055_calib_node (e.g. ~/.ros/bno055_calib.yaml).
+ *                    When the file exists offsets are loaded onto the
+ *                    sensor during on_configure before entering NDOF mode.
+ *                    Leave empty (default) to rely on in-sensor calibration.
  *
  * STATE INTERFACES (sensor_name prefix set in URDF):
  *   orientation.x / .y / .z / .w
@@ -83,6 +91,11 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  // Load calibration offsets from calib_file_ and write them to the sensor
+  // (must be called while the sensor is in CONFIG mode).
+  // Returns true if the file was found and applied, false if absent or on error.
+  bool load_calib_offsets();
+
   rclcpp::Logger logger_;
 
   // Parameters
@@ -90,6 +103,7 @@ private:
   uint8_t     i2c_addr_{0x28};
   std::string axis_remap_{"P1"};
   bool        enable_mock_{false};
+  std::string calib_file_{};  // empty = no file, do not attempt to load
 
   // Bosch Sensortec driver handle
   bno055_t sensor_{};
