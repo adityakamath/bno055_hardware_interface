@@ -79,8 +79,41 @@ install(DIRECTORY config launch
 )
 
 if(BUILD_TESTING)
+  # Disable linters that would recurse into the external/ Bosch vendor directory
+  # and the Bosch driver's non-standard style conventions.
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
+  set(ament_cmake_lint_cmake_FOUND TRUE)
+  set(ament_cmake_uncrustify_FOUND TRUE)
+
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
+
+  # C++ unit / integration tests
+  # - on_init validation (no hardware)
+  # - export_state_interfaces (no hardware)
+  # - lifecycle transitions (requires BNO055 on /dev/i2c-1, skips gracefully)
+  # - read() sanity checks (requires BNO055 on /dev/i2c-1, skips gracefully)
+  ament_add_gtest(test_hardware_interface
+    test/test_hardware_interface.cpp
+  )
+  target_link_libraries(test_hardware_interface
+    ${PROJECT_NAME}
+    ${rclcpp_TARGETS}
+    hardware_interface::hardware_interface
+    i2c
+  )
+  target_include_directories(test_hardware_interface PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${BNO055_DRIVER_DIR}
+  )
+
+  # Python launch test — full stack against real BNO055 hardware.
+  # Skips all test cases when the sensor is absent so CI stays green.
+  add_launch_test(test/test_bno055.launch.py)
 endif()
 
 ament_package()
