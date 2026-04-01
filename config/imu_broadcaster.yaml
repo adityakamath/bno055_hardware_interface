@@ -1,0 +1,15 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz - Control loop frequency
+
+    # IMU Sensor Broadcaster - Publishes sensor_msgs/Imu to /bno055/imu
+    imu_sensor_broadcaster:
+      type: imu_sensor_broadcaster/IMUSensorBroadcaster
+
+# IMU Sensor Broadcaster configuration
+# Reads orientation, angular_velocity and linear_acceleration state interfaces
+# and publishes sensor_msgs/Imu to /<sensor_name>/imu
+imu_sensor_broadcaster:
+  ros__parameters:
+    sensor_name: bno055       # Must match the <sensor name="..."> in the URDF ros2_control block
+    frame_id: imu_frame       # TF frame for the published Imu messages

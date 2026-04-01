@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="bno055_imu">
+
+  <!-- Arguments -->
+  <xacro:arg name="i2c_bus"     default="1"/>
+  <xacro:arg name="i2c_addr"   default="28"/>   <!-- hex, no 0x prefix: 28 = 0x28 -->
+  <xacro:arg name="axis_remap" default="P1"/>    <!-- P0-P7, see BNO055 datasheet Table 3-4 -->
+  <xacro:arg name="enable_mock" default="false"/>
+
+  <!-- Robot links -->
+  <link name="base_link"/>
+
+  <link name="imu_link"/>
+
+  <link name="imu_frame"/>
+
+  <!-- base_link -> imu_link (adjust origin for your mounting position) -->
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- imu_link -> imu_frame (zero offset; imu_frame is the sensor measurement frame) -->
+  <joint name="imu_frame_joint" type="fixed">
+    <parent link="imu_link"/>
+    <child link="imu_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ros2_control sensor block -->
+  <ros2_control name="bno055_sensor" type="sensor">
+    <hardware>
+      <plugin>bno055_hardware_interface/BNO055HardwareInterface</plugin>
+
+      <!-- I2C Parameters -->
+      <param name="i2c_bus">$(arg i2c_bus)</param>       <!-- I2C bus number (default: 1 → /dev/i2c-1) -->
+      <param name="i2c_addr">$(arg i2c_addr)</param>     <!-- I2C address in hex, no 0x prefix (default: 28 = 0x28) -->
+
+      <!-- Sensor Configuration -->
+      <param name="axis_remap">$(arg axis_remap)</param>     <!-- Axis placement config: P0-P7 (default: P1) -->
+      <param name="enable_mock">$(arg enable_mock)</param>   <!-- Simulation mode, no hardware required (default: false) -->
+    </hardware>
+
+    <sensor name="bno055">
+      <!-- Orientation (quaternion, unit norm) -->
+      <state_interface name="orientation.x"/>
+      <state_interface name="orientation.y"/>
+      <state_interface name="orientation.z"/>
+      <state_interface name="orientation.w"/>
+
+      <!-- Angular velocity (rad/s) -->
+      <state_interface name="angular_velocity.x"/>
+      <state_interface name="angular_velocity.y"/>
+      <state_interface name="angular_velocity.z"/>
+
+      <!-- Linear acceleration (m/s²), gravity-compensated -->
+      <state_interface name="linear_acceleration.x"/>
+      <state_interface name="linear_acceleration.y"/>
+      <state_interface name="linear_acceleration.z"/>
+    </sensor>
+  </ros2_control>
+
+</robot>
