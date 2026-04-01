@@ -1,0 +1,309 @@
+// Copyright 2026 Aditya Kamath
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/** @file bno055_hardware_interface.cpp
+ *
+ * ros2_control SensorInterface for the Bosch BNO055 IMU over I2C.
+ *
+ * Uses the official Bosch Sensortec BNO055 C driver (external/BNO055_driver)
+ * wired to the Linux i2c-dev / SMBus kernel interface via bno055_i2c.c.
+ * The I2C adapter approach follows bdholt1/ros2_bno055_sensor (Apache-2.0).
+ * Register layout and scaling constants follow flynneva/bno055 (BSD-3).
+ */
+
+#include "bno055_hardware_interface/bno055_hardware_interface.hpp"
+
+#include <cmath>
+#include <string>
+#include <vector>
+
+#include "pluginlib/class_list_macros.hpp"
+
+PLUGINLIB_EXPORT_CLASS(
+  bno055_hardware_interface::BNO055HardwareInterface,
+  hardware_interface::SensorInterface)
+
+namespace bno055_hardware_interface
+{
+
+// Quaternion raw -> unit: divide by 2^14 (Bosch datasheet §3.6.5.5)
+static constexpr double QUATERNION_SCALE = 1.0 / 16384.0;
+
+// Axis remap lookup: P0-P7 -> { AXIS_MAP_CONFIG byte, AXIS_MAP_SIGN byte }
+// Values from BNO055 datasheet Table 3-4 (same as flynneva/bno055)
+static const std::map<std::string, std::pair<uint8_t, uint8_t>> kAxisRemap = {
+  {"P0", {0x21, 0x04}},
+  {"P1", {0x24, 0x00}},
+  {"P2", {0x24, 0x06}},
+  {"P3", {0x21, 0x02}},
+  {"P4", {0x24, 0x03}},
+  {"P5", {0x21, 0x01}},
+  {"P6", {0x21, 0x07}},
+  {"P7", {0x24, 0x05}},
+};
+
+// ── on_init: parse URDF hardware parameters ──────────────────────────────────
+
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
+  const hardware_interface::HardwareInfo & hardware_info)
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  if (hardware_interface::SensorInterface::on_init(hardware_info) !=
+    hardware_interface::CallbackReturn::SUCCESS)
+  {
+#pragma GCC diagnostic pop
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  logger_ = rclcpp::get_logger("BNO055HardwareInterface");
+  RCLCPP_INFO(logger_, "Initializing BNO055 hardware interface: %s", info_.name.c_str());
+
+  // i2c_bus (default: 1)
+  if (info_.hardware_parameters.count("i2c_bus")) {
+    try {
+      i2c_bus_ = std::stoi(info_.hardware_parameters.at("i2c_bus"));
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR(logger_, "Invalid i2c_bus: %s", e.what());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
+  }
+
+  // i2c_addr (default: 0x28)
+  if (info_.hardware_parameters.count("i2c_addr")) {
+    try {
+      i2c_addr_ = static_cast<uint8_t>(
+        std::stoul(info_.hardware_parameters.at("i2c_addr"), nullptr, 16));
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR(logger_, "Invalid i2c_addr: %s", e.what());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
+  }
+
+  // axis_remap (default: "P1")
+  if (info_.hardware_parameters.count("axis_remap")) {
+    axis_remap_ = info_.hardware_parameters.at("axis_remap");
+  }
+  if (kAxisRemap.find(axis_remap_) == kAxisRemap.end()) {
+    RCLCPP_ERROR(logger_, "Invalid axis_remap '%s'. Must be P0-P7.", axis_remap_.c_str());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  // enable_mock (default: false)
+  if (info_.hardware_parameters.count("enable_mock")) {
+    const std::string & v = info_.hardware_parameters.at("enable_mock");
+    enable_mock_ = (v == "true" || v == "1");
+  }
+
+  if (info_.sensors.size() != 1) {
+    RCLCPP_ERROR(logger_, "Expected exactly 1 <sensor> element, got %zu", info_.sensors.size());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  RCLCPP_INFO(
+    logger_,
+    "Configured: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s",
+    i2c_bus_, i2c_addr_, axis_remap_.c_str(), enable_mock_ ? "true" : "false");
+
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+// ── on_configure: open I2C, init Bosch driver, configure BNO055 ──────────────
+
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  RCLCPP_INFO(logger_, "Configuring BNO055...");
+
+  if (enable_mock_) {
+    RCLCPP_INFO(logger_, "Mock mode enabled - skipping I2C initialization");
+    return hardware_interface::CallbackReturn::SUCCESS;
+  }
+
+  // Open I2C bus
+  std::string device = "/dev/i2c-" + std::to_string(i2c_bus_);
+  if (bno055_i2c_open(device.c_str(), i2c_addr_) != 0) {
+    RCLCPP_ERROR(logger_, "Failed to open I2C device %s at address 0x%02X",
+      device.c_str(), i2c_addr_);
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  // Wire Bosch driver callbacks
+  sensor_.bus_read  = BNO055_I2C_bus_read;
+  sensor_.bus_write = BNO055_I2C_bus_write;
+  sensor_.delay_msec = BNO055_delay_msek;
+  sensor_.dev_addr  = static_cast<u8>(i2c_addr_);
+
+  // Initialize the Bosch driver (reads chip ID, populates rev info)
+  s32 comres = bno055_init(&sensor_);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_ERROR(logger_, "bno055_init() failed (err=%d). Check wiring and I2C address.", comres);
+    bno055_i2c_close();
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+  RCLCPP_INFO(
+    logger_, "BNO055 detected: chip_id=0x%02X sw_rev=%d.%d",
+    sensor_.chip_id, sensor_.sw_rev_id >> 8, sensor_.sw_rev_id & 0xFF);
+
+  // Switch to CONFIG mode to apply settings
+  comres = bno055_set_operation_mode(BNO055_OPERATION_MODE_CONFIG);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_WARN(logger_, "Failed to set CONFIG mode (err=%d)", comres);
+  }
+  rclcpp::sleep_for(std::chrono::milliseconds(25));  // datasheet: >=19 ms
+
+  // Normal power mode
+  comres = bno055_set_power_mode(BNO055_POWER_MODE_NORMAL);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_WARN(logger_, "Failed to set NORMAL power mode (err=%d)", comres);
+  }
+
+  // Gyro unit: radians per second
+  comres = bno055_set_gyro_unit(BNO055_GYRO_UNIT_RPS);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_WARN(logger_, "Failed to set gyro unit to rps (err=%d)", comres);
+  }
+
+  // Accel unit: m/s^2
+  comres = bno055_set_accel_unit(BNO055_ACCEL_UNIT_MSQ);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_WARN(logger_, "Failed to set accel unit to m/s^2 (err=%d)", comres);
+  }
+
+  // Axis remap: write { AXIS_MAP_CONFIG, AXIS_MAP_SIGN } directly via the
+  // wired bus_write callback (same values as flynneva/bno055 P-code table)
+  const auto & remap = kAxisRemap.at(axis_remap_);
+  u8 remap_cfg  = remap.first;
+  u8 remap_sign = remap.second;
+  sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_CONFIG_ADDR, &remap_cfg, 1);
+  sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_SIGN_ADDR,   &remap_sign, 1);
+  RCLCPP_INFO(logger_, "Axis remap %s applied (cfg=0x%02X sign=0x%02X)",
+    axis_remap_.c_str(), remap_cfg, remap_sign);
+
+  // Switch to NDOF fusion mode
+  comres = bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_ERROR(logger_, "Failed to set NDOF operation mode (err=%d)", comres);
+    bno055_i2c_close();
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+  rclcpp::sleep_for(std::chrono::milliseconds(20));  // datasheet: >=7 ms
+
+  RCLCPP_INFO(logger_, "BNO055 configured in NDOF fusion mode");
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+// ── on_activate / on_deactivate / on_cleanup ─────────────────────────────────
+
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_activate(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  RCLCPP_INFO(logger_, "BNO055 hardware interface activated");
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  RCLCPP_INFO(logger_, "BNO055 hardware interface deactivated");
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  if (!enable_mock_) {
+    bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND);
+    bno055_i2c_close();
+    RCLCPP_INFO(logger_, "BNO055 suspended and I2C closed");
+  }
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+// ── export_state_interfaces ───────────────────────────────────────────────────
+
+std::vector<hardware_interface::StateInterface>
+BNO055HardwareInterface::export_state_interfaces()
+{
+  const std::string & sensor_name = info_.sensors[0].name;
+  std::vector<hardware_interface::StateInterface> state_interfaces;
+
+  state_interfaces.emplace_back(sensor_name, "orientation.x",         &hw_orientation_x_);
+  state_interfaces.emplace_back(sensor_name, "orientation.y",         &hw_orientation_y_);
+  state_interfaces.emplace_back(sensor_name, "orientation.z",         &hw_orientation_z_);
+  state_interfaces.emplace_back(sensor_name, "orientation.w",         &hw_orientation_w_);
+  state_interfaces.emplace_back(sensor_name, "angular_velocity.x",    &hw_angular_velocity_x_);
+  state_interfaces.emplace_back(sensor_name, "angular_velocity.y",    &hw_angular_velocity_y_);
+  state_interfaces.emplace_back(sensor_name, "angular_velocity.z",    &hw_angular_velocity_z_);
+  state_interfaces.emplace_back(sensor_name, "linear_acceleration.x", &hw_linear_acceleration_x_);
+  state_interfaces.emplace_back(sensor_name, "linear_acceleration.y", &hw_linear_acceleration_y_);
+  state_interfaces.emplace_back(sensor_name, "linear_acceleration.z", &hw_linear_acceleration_z_);
+
+  RCLCPP_INFO(logger_, "Exported 10 state interfaces for sensor '%s'", sensor_name.c_str());
+  return state_interfaces;
+}
+
+// ── read: poll BNO055 and update state interfaces ────────────────────────────
+
+hardware_interface::return_type BNO055HardwareInterface::read(
+  const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+{
+  if (enable_mock_) {
+    return hardware_interface::return_type::OK;
+  }
+
+  s32 comres = BNO055_SUCCESS;
+
+  // Orientation — raw quaternion (s16 values, scale = 1/2^14)
+  struct bno055_quaternion_t quat;
+  comres += bno055_read_quaternion_wxyz(&quat);
+
+  // Angular velocity — convert to rad/s directly (gyro unit set to RPS)
+  struct bno055_gyro_double_t gyro;
+  comres += bno055_convert_double_gyro_xyz_rps(&gyro);
+
+  // Linear acceleration (gravity-compensated, m/s^2)
+  struct bno055_linear_accel_double_t lin_accel;
+  comres += bno055_convert_double_linear_accel_xyz_msq(&lin_accel);
+
+  if (comres != BNO055_SUCCESS) {
+    RCLCPP_WARN(logger_, "BNO055 read error (%d) - keeping previous values", comres);
+    return hardware_interface::return_type::OK;  // keep last good values
+  }
+
+  // Normalize quaternion (raw values scale to unit quaternion via QUATERNION_SCALE)
+  const double qw = quat.w * QUATERNION_SCALE;
+  const double qx = quat.x * QUATERNION_SCALE;
+  const double qy = quat.y * QUATERNION_SCALE;
+  const double qz = quat.z * QUATERNION_SCALE;
+  const double norm = std::sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
+  if (norm > 1e-6) {
+    hw_orientation_w_ = qw / norm;
+    hw_orientation_x_ = qx / norm;
+    hw_orientation_y_ = qy / norm;
+    hw_orientation_z_ = qz / norm;
+  }
+
+  hw_angular_velocity_x_ = gyro.x;
+  hw_angular_velocity_y_ = gyro.y;
+  hw_angular_velocity_z_ = gyro.z;
+
+  hw_linear_acceleration_x_ = lin_accel.x;
+  hw_linear_acceleration_y_ = lin_accel.y;
+  hw_linear_acceleration_z_ = lin_accel.z;
+
+  return hardware_interface::return_type::OK;
+}
+
+}  // namespace bno055_hardware_interface

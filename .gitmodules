@@ -1,0 +1,3 @@
+[submodule "external/BNO055_driver"]
+	path = external/BNO055_driver
+	url = https://github.com/BoschSensortec/BNO055_driver.git

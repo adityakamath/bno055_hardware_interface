@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<library path="bno055_hardware_interface">
+  <class
+    name="bno055_hardware_interface/BNO055HardwareInterface"
+    type="bno055_hardware_interface::BNO055HardwareInterface"
+    base_class_type="hardware_interface::SensorInterface">
+    <description>
+      ros2_control SensorInterface plugin for the Bosch BNO055 IMU over I2C.
+      Provides orientation (quaternion), angular_velocity and linear_acceleration
+      state interfaces for use with imu_sensor_broadcaster.
+    </description>
+  </class>
+</library>

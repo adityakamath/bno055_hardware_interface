@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>bno055_hardware_interface</name>
+  <version>0.1.0</version>
+  <description>
+    ros2_control SensorInterface hardware plugin for the Bosch BNO055 IMU over I2C.
+    Populates orientation, angular_velocity and linear_acceleration state interfaces
+    for use with imu_sensor_broadcaster.
+  </description>
+
+  <author email="adityakamath@live.com">Aditya Kamath</author>
+  <maintainer email="adityakamath@live.com">Aditya Kamath</maintainer>
+
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <hardware_interface plugin="${prefix}/bno055_hardware_interface.xml"/>
+  </export>
+</package>
