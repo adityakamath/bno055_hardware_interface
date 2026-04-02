@@ -3,9 +3,8 @@
  * Publishes BNO055 sensor health as a ROS 2 diagnostics message.
  *
  * Opens the I2C bus independently of the hardware interface plugin (the Linux
- * i2c-dev kernel driver serialises concurrent ioctl(I2C_RDWR) calls, so both
- * can safely share the bus). Reads status and calibration registers at 1 Hz
- * and publishes a diagnostic_msgs/DiagnosticArray to /diagnostics.
+ * i2c-dev kernel driver serialises concurrent SMBus calls, so both can safely
+ * share the bus). Reads status and calibration registers at 1 Hz and publishes a diagnostic_msgs/DiagnosticArray to /diagnostics.
  *
  * Compatible with rqt_robot_monitor, diagnostic_aggregator, and Foxglove's
  * diagnostics panel without any extra configuration.

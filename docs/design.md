@@ -25,8 +25,10 @@ The BNO055 Hardware Interface is a `ros2_control` `SensorInterface` plugin that 
 2. **Hardware Interface** — `SensorInterface` plugin bridging `ros2_control` to the BNO055 over I2C
 3. **Bosch SensorAPI** — C library (`external/BNO055_driver/`) providing register-level access via wired callbacks
 4. **I2C Layer** — Linux `i2c-dev` / SMBus via `src/bno055_i2c.c`; opens `/dev/i2c-{bus}`
-5. **BNO055 Sensor** — On-chip NDOF fusion: gyroscope + accelerometer + magnetometer
+5. **BNO055 Sensor** — On-chip fusion (NDOF / NDOF_FMC_OFF / IMUPLUS): gyroscope + accelerometer + magnetometer (mag unused in IMUPLUS)
 6. **Companion Nodes** — `imu_tf_broadcaster` (TF relay, optional) and `bno055_diagnostics` (sensor health on `/diagnostics` at 1 Hz via independent I2C fd, optional)
+
+![System Architecture](assets/img/system_architecture.svg)
 
 ---
 
@@ -66,7 +68,7 @@ The full hardware initialisation sequence executed in `on_configure()`:
 4. **Set CONFIG mode** — `bno055_set_operation_mode(BNO055_OPERATION_MODE_CONFIG)` + 25 ms delay (datasheet requirement: ≥19 ms)
 5. **Set NORMAL power mode** — `bno055_set_power_mode(BNO055_POWER_MODE_NORMAL)`
 6. **Set measurement units** — `bno055_set_gyro_unit(BNO055_GYRO_UNIT_RPS)` and `bno055_set_accel_unit(BNO055_ACCEL_UNIT_MSQ)`
-7. **Load calibration offsets** — if `calib_file_` is non-empty, open the YAML, parse key/value pairs, write accel/gyro/mag offsets and radii via `bno055_write_accel_offset / _gyro_offset / _mag_offset` (must be done in CONFIG mode, before NDOF)
+7. **Load calibration offsets** — if `calib_file_` is non-empty, open the YAML, parse key/value pairs, write accel/gyro/mag offsets and radii via `bno055_write_accel_offset / _gyro_offset / _mag_offset` (must be done in CONFIG mode, before entering the configured fusion mode)
 8. **Apply axis remap** — write `AXIS_MAP_CONFIG` and `AXIS_MAP_SIGN` register bytes directly via wired `bus_write` callback (values from `kAxisRemap` lookup table)
 9. **Activate fusion mode** — `bno055_set_operation_mode(kOperationMode.at(sensor_mode_))` + 20 ms delay (datasheet requirement: ≥7 ms for NDOF; same delay used for all three supported modes)
 
@@ -76,9 +78,13 @@ In **mock mode** (`enable_mock_ = true`), the entire sequence is skipped and `on
 
 When the lifecycle node is cleaned up: `bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND)` puts the sensor into low-power state, then `bno055_i2c_close()` closes the file descriptor.
 
+### on_shutdown
+
+Identical to `on_cleanup` — suspends the sensor and closes the I2C file descriptor. Ensures clean teardown regardless of which lifecycle transition triggers the exit.
+
 ### on_read
 
-Called at the controller update rate (50 Hz per `imu_broadcaster.yaml`):
+Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
 
 - **Mock mode**: state vector stays at initial values (0.0 for velocity/acceleration, identity quaternion w=1.0)
 - **Real hardware**: calls `bno055_read_quaternion_wxyz()` (raw int16 quaternion, scaled by `1/16384`), `bno055_convert_double_gyro_xyz_rps()` (returns rad/s directly), and `bno055_convert_double_linear_accel_xyz_msq()` (returns m/s² directly); writes results to state interface doubles
@@ -180,7 +186,7 @@ Called at the controller update rate (50 Hz per `imu_broadcaster.yaml`):
 
 ## Axis Remapping
 
-The BNO055 supports 8 standard mounting orientations. The correct P-code for a given PCB orientation is read from BNO055 datasheet §3.4 and set via the `axis_remap` parameter at launch time. Register values are written directly in CONFIG mode before switching to NDOF:
+The BNO055 supports 8 standard mounting orientations. The correct P-code for a given PCB orientation is read from BNO055 datasheet §3.4 and set via the `axis_remap` parameter at launch time. Register values are written directly in CONFIG mode before switching to the configured fusion mode:
 
 <style>
   .remap-table {
@@ -321,12 +327,12 @@ Values match the `flynneva/bno055` P-code table and Bosch datasheet Table 3-4. T
 
 ### Overview
 
-The BNO055 performs self-calibration dynamically. Each sub-sensor reports a calibration level 0–3 (3 = fully calibrated). In NDOF mode, calibration is automatic but non-persistent — offsets are lost at power off.
+The BNO055 performs self-calibration dynamically. Each sub-sensor reports a calibration level 0–3 (3 = fully calibrated). In all fusion modes, calibration is automatic but non-persistent — offsets are lost at power off.
 
 To persist calibration across reboots:
 
 1. Read the sensor’s calibration offsets (via Bosch SensorAPI) and store them in a YAML file
-2. Pass the file path as the `calib_file` hardware parameter — the plugin reads the YAML and writes offsets into the sensor in CONFIG mode before NDOF, so it starts pre-calibrated
+2. Pass the file path as the `calib_file` hardware parameter — the plugin reads the YAML and writes offsets into the sensor in CONFIG mode before entering the configured fusion mode, so it starts pre-calibrated
 
 ### Calibration YAML Format
 
@@ -355,7 +361,7 @@ All values are raw 16-bit integers as defined by the Bosch SensorAPI offset stru
 | **Gyroscope** | Place on a stable surface and keep completely still for ~10 s |
 | **Accelerometer** | Hold still in at least 6 different orientations (each face pointing down), ~3 s each |
 | **Magnetometer** | Move slowly in a figure-8 pattern in the air, away from metal objects |
-| **System** | Reaches 3 only when gyro + accel are both at level 3 |
+| **System** | Reaches 3 only when gyro + accel + mag are all at level 3 (NDOF/NDOF_FMC_OFF); gyro + accel in IMUPLUS |
 
 ### Offset Loading in the Plugin
 
@@ -377,8 +383,8 @@ The plugin uses the Linux `i2c-dev` kernel interface via `src/bno055_i2c.c`. The
 
 | Callback | Implementation | Description |
 |----------|---------------|-------------|
-| `sensor_.bus_read` | `BNO055_I2C_bus_read()` | `read()` after `write()` of register address via `ioctl(I2C_RDWR)` |
-| `sensor_.bus_write` | `BNO055_I2C_bus_write()` | `write()` register address + data via `ioctl(I2C_RDWR)` |
+| `sensor_.bus_read` | `BNO055_I2C_bus_read()` | SMBus read: `i2c_smbus_read_byte_data` (1 byte) or `i2c_smbus_read_i2c_block_data` (multi-byte) |
+| `sensor_.bus_write` | `BNO055_I2C_bus_write()` | SMBus write: `i2c_smbus_write_byte_data` (1 byte) or `i2c_smbus_write_i2c_block_data` (multi-byte) |
 | `sensor_.delay_msec` | `BNO055_delay_msek()` | `usleep(ms * 1000)` |
 
 **I2C addresses:**
@@ -388,9 +394,9 @@ The plugin uses the Linux `i2c-dev` kernel interface via `src/bno055_i2c.c`. The
 | Low (GND) | 0x28 | `"28"` (default) |
 | High (VDD) | 0x29 | `"29"` |
 
-**Bus access:** a single file descriptor is kept open for the lifetime of the hardware interface (from `on_configure` to `on_cleanup`). No locking is done — the calibration node and hardware interface **must not run simultaneously on the same bus**.
+**Bus access:** a single file descriptor is kept open for the lifetime of the hardware interface (from `on_configure` to `on_cleanup`). No locking is done in user space — the Linux `i2c-dev` kernel driver serialises concurrent SMBus calls at the adapter level, so the diagnostics node can safely share the bus (see Diagnostics Node section).
 
-**Self-test:** On init, the Bosch driver reads the chip ID register (`0xA0`). The full hardware self-test register (`SELFTEST_RESULT`) returns `0x0F` when all four sub-systems (MCU, gyro, accel, mag) pass.
+**Self-test:** On init, the Bosch driver reads the chip ID register (expected `0xA0`). Note: the plugin does not read the full self-test register (`SELFTEST_RESULT`, which returns `0x0F` when all four sub-systems pass) — only the chip ID is verified.
 
 ---
 
@@ -449,7 +455,7 @@ The `<ros2_control>` block declares the hardware plugin and all 10 state interfa
 ```yaml
 controller_manager:
   ros__parameters:
-    update_rate: 50  # Hz
+    update_rate: 100  # Hz
     imu_sensor_broadcaster:
       type: imu_sensor_broadcaster/IMUSensorBroadcaster
 
@@ -474,7 +480,7 @@ The covariance values are derived from BNO055 datasheet noise specs:
 - **Angular velocity**: ~0.014 °/s/√Hz gyro noise density → ≈1×10⁻⁵ rad²/s²
 - **Linear acceleration**: ~150 µg/√Hz accel noise density → ≈2×10⁻⁴ m²/s⁴
 
-The broadcaster reads all 10 state interfaces from the sensor named `bno055` and publishes a `sensor_msgs/Imu` message on `/imu_sensor_broadcaster/imu` at 50 Hz.
+The broadcaster reads all 10 state interfaces from the sensor named `bno055` and publishes a `sensor_msgs/Imu` message on `/imu_sensor_broadcaster/imu` at 100 Hz.
 
 ---
 
@@ -482,7 +488,7 @@ The broadcaster reads all 10 state interfaces from the sensor named `bno055` and
 
 An optional companion node (`src/bno055_diagnostics.cpp`) publishes BNO055 sensor health to `/diagnostics` at 1 Hz as a `diagnostic_msgs/DiagnosticArray`. Enabled via the `publish_diagnostics:=true` launch argument.
 
-The node opens its own I2C file descriptor independently of the hardware interface plugin. The Linux `i2c-dev` kernel driver serialises concurrent `ioctl(I2C_RDWR)` calls at the adapter level, so both can safely share the bus. The 1 Hz poll causes at most ~200 µs of bus contention per 20 ms control cycle — negligible.
+The node opens its own I2C file descriptor independently of the hardware interface plugin. The Linux `i2c-dev` kernel driver serialises concurrent SMBus calls at the adapter level, so both can safely share the bus. The 1 Hz poll causes at most ~200 µs of bus contention per 10 ms control cycle — negligible.
 
 **Node parameters:**
 

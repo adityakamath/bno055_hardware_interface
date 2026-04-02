@@ -1,0 +1,8 @@
+# Install Mermaid CLI (mmdc)
+npm install -g @mermaid-js/mermaid-cli
+
+# Generate SVG with a white background
+for f in *.mmd; do mmdc -i "$f" -o "../img/${f%.mmd}.svg" --backgroundColor white; done
+
+# Run these commands from the bno055_hardware_interface/docs/assets/mermaid directory.
+# The generated SVGs will be saved in bno055_hardware_interface/docs/assets/img/.

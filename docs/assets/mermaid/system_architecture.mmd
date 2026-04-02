@@ -1,0 +1,31 @@
+flowchart LR
+    subgraph Sensor["BNO055 IMU"]
+        GYRO["Gyroscope<br/>±2000°/s"]
+        ACCEL["Accelerometer<br/>±4g"]
+        MAG[Magnetometer]
+        FUSION["On-chip Fusion<br/>NDOF / NDOF_FMC_OFF / IMUPLUS"]
+    end
+
+    subgraph HWI["BNO055 Hardware Interface"]
+        I2C["bno055_i2c.c<br/>i2c-dev / SMBus"]
+        API["Bosch SensorAPI<br/>external/BNO055_driver"]
+        SI[SensorInterface Plugin]
+    end
+
+    subgraph ROS2["ROS 2 (ros2_control)"]
+        C1[imu_sensor_broadcaster]
+    end
+
+    CN1[imu_tf_broadcaster]
+    CN2[bno055_diagnostics]
+
+    GYRO --> FUSION
+    ACCEL --> FUSION
+    MAG --> FUSION
+    FUSION <-->|"/dev/i2c-N"| I2C
+    I2C <-->|"bus_read/write<br/>callbacks"| API
+    API <--> SI
+    CN2 <-->|"independent instance"| API
+    CN2 -.->|"own bno055_i2c<br/>instance"| I2C
+    SI -->|"10 state interfaces"| C1
+    C1 -->|"/imu topic"| CN1

@@ -121,6 +121,8 @@ ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
 
 ### Example 4: Real Hardware with Saved Calibration
 
+> **Note:** The `calib_file` launch argument is commented out in `bno055.launch.py` by default. Uncomment the `DeclareLaunchArgument` block and the corresponding xacro pass-through line in the launch file before using this example.
+
 ```bash
 # Load magnet/gyro/accel offsets from a previously saved YAML file
 ros2 launch bno055_hardware_interface bno055.launch.py \
@@ -175,6 +177,8 @@ All values are raw 16-bit integers as defined by the Bosch SensorAPI offset stru
 
 ### Step 2: Launch with Saved Calibration
 
+> **Note:** The `calib_file` launch argument is commented out by default — uncomment it in `bno055.launch.py` first (see the launch file comments).
+
 ```bash
 ros2 launch bno055_hardware_interface bno055.launch.py \
   calib_file:=/home/ubuntu/.ros/bno055_calib.yaml
@@ -196,7 +200,7 @@ The plugin logs each offset set it applied:
 | **Gyroscope** | Place on a stable surface and keep completely still for ~10 s |
 | **Accelerometer** | Hold still in at least 6 different orientations (each face pointing down), ~3 s each |
 | **Magnetometer** | Move slowly in a figure-8 pattern in the air, away from metal objects |
-| **System** | Reaches 3 only when gyro + accel are both at level 3 |
+| **System** | Reaches 3 only when gyro + accel + mag are all at level 3 (NDOF/NDOF_FMC_OFF); gyro + accel in IMUPLUS |
 
 ---
 
@@ -473,7 +477,7 @@ colcon test-result --verbose
 | Test File | Type | Tests | What Is Covered |
 |-----------|------|-------|-----------------|
 | `test_hardware_interface.cpp` | C++ unit | 9 | Parameter parsing (incl. sensor_mode), state interface export, mock-mode lifecycle, read behaviour |
-| `test_bno055.launch.py` | Launch integration | 8 | Full bringup with `enable_mock:=true`, node presence, topic availability |
+| `test_bno055.launch.py` | Launch integration | 10 | Full bringup with `enable_mock:=true`, node presence, topic availability, diagnostics |
 | Linters | Style | 4+ | `flake8`, `pep257` (C++ linters disabled to avoid recursing into the Bosch vendor tree) |
 
 ### Run Specific Test Groups

@@ -24,8 +24,8 @@ namespace bno055_hardware_interface
  * Uses the official Bosch Sensortec BNO055 driver (external/BNO055_driver)
  * via a Linux i2c-dev / SMBus adapter (bno055_i2c.c).
  * Reads orientation (quaternion), angular velocity and linear acceleration
- * in NDOF fusion mode and exposes them as state interfaces for use with
- * imu_sensor_broadcaster.
+ * in a configurable fusion mode (NDOF, NDOF_FMC_OFF, or IMUPLUS) and
+ * exposes them as state interfaces for use with imu_sensor_broadcaster.
  *
  * HARDWARE PARAMETERS (from ros2_control URDF <sensor>):
  *   - i2c_bus      : I2C bus number, e.g. "1" for /dev/i2c-1  (default: "1")
