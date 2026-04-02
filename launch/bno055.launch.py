@@ -47,6 +47,15 @@ def generate_launch_description():
             default_value='false',
             description='Use mock/simulation mode (no hardware required)'
         ),
+        DeclareLaunchArgument(
+            'sensor_mode',
+            default_value='NDOF',
+            description=(
+                'BNO055 fusion mode: NDOF (absolute, 9-DOF), '
+                'NDOF_FMC_OFF (absolute, fast mag-cal disabled), '
+                'IMUPLUS (relative, 6-DOF, no magnetometer)'
+            )
+        ),
         # To load saved calibration offsets instead of relying on auto-calibration,
         # uncomment the argument below and the corresponding lines in the xacro command.
         # The config/bno055_calib.yaml file in this package shows the expected format.
@@ -68,6 +77,7 @@ def generate_launch_description():
     i2c_addr = LaunchConfiguration('i2c_addr')
     axis_remap = LaunchConfiguration('axis_remap')
     enable_mock = LaunchConfiguration('enable_mock')
+    sensor_mode = LaunchConfiguration('sensor_mode')
     # calib_file = LaunchConfiguration('calib_file')
     publish_tf = LaunchConfiguration('publish_tf')
 
@@ -87,6 +97,8 @@ def generate_launch_description():
             'axis_remap:=', axis_remap,
             ' ',
             'enable_mock:=', enable_mock,
+            ' ',
+            'sensor_mode:=', sensor_mode,
             # Uncomment to pass a calibration offsets file to the plugin:
             # ' ', 'calib_file:=', calib_file,
         ]

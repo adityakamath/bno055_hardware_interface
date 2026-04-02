@@ -5,8 +5,9 @@
   <xacro:arg name="i2c_bus"     default="1"/>
   <xacro:arg name="i2c_addr"   default="28"/>   <!-- hex, no 0x prefix: 28 = 0x28 -->
   <xacro:arg name="axis_remap" default="P1"/>    <!-- P0-P7, see BNO055 datasheet Table 3-4 -->
-  <xacro:arg name="enable_mock" default="false"/>
-  <xacro:arg name="calib_file"  default=""/>          <!-- Path to calibration YAML file (empty = uncalibrated startup) -->
+  <xacro:arg name="enable_mock"   default="false"/>
+  <xacro:arg name="sensor_mode"   default="NDOF"/>    <!-- Fusion mode: NDOF, NDOF_FMC_OFF, IMUPLUS (default: NDOF) -->
+  <xacro:arg name="calib_file"    default=""/>        <!-- Path to calibration YAML file (empty = uncalibrated startup) -->
   <xacro:property name="calib_file_path" value="$(arg calib_file)"/>
 
   <!-- Robot links -->
@@ -41,6 +42,7 @@
 
       <!-- Sensor Configuration -->
       <param name="axis_remap">$(arg axis_remap)</param>     <!-- Axis placement config: P0-P7 (default: P1) -->
+      <param name="sensor_mode">$(arg sensor_mode)</param>   <!-- Fusion mode: NDOF, NDOF_FMC_OFF, IMUPLUS (default: NDOF) -->
       <param name="enable_mock">$(arg enable_mock)</param>   <!-- Simulation mode, no hardware required (default: false) -->
       <xacro:if value="${calib_file_path != ''}">             <!-- Only emitted when a path is provided -->
         <param name="calib_file">${calib_file_path}</param>

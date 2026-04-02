@@ -95,6 +95,17 @@ const std::map<std::string, std::pair<uint8_t, uint8_t>> kAxisRemap = {
   {"P7", {0x24, 0x05}},
 };
 
+// Fusion mode lookup: parameter string -> BNO055 operation mode constant.
+// All three modes produce identical outputs: quaternion + angular_velocity + linear_acceleration.
+//   NDOF         - 9-DOF, absolute orientation anchored to magnetic North
+//   NDOF_FMC_OFF - same as NDOF but fast magnetometer calibration disabled (for noisy environments)
+//   IMUPLUS      - 6-DOF, relative orientation, gyro + accel only (no magnetometer)
+const std::map<std::string, uint8_t> kOperationMode = {
+  {"NDOF",         BNO055_OPERATION_MODE_NDOF},
+  {"NDOF_FMC_OFF", BNO055_OPERATION_MODE_NDOF_FMC_OFF},
+  {"IMUPLUS",      BNO055_OPERATION_MODE_IMUPLUS},
+};
+
 }  // namespace
 
 namespace bno055_hardware_interface
@@ -157,6 +168,17 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     calib_file_ = info_.hardware_parameters.at("calib_file");
   }
 
+  // sensor_mode (default: "NDOF")
+  if (info_.hardware_parameters.count("sensor_mode")) {
+    sensor_mode_ = info_.hardware_parameters.at("sensor_mode");
+  }
+  if (kOperationMode.find(sensor_mode_) == kOperationMode.end()) {
+    RCLCPP_ERROR(
+      logger_, "Invalid sensor_mode '%s'. Must be one of: NDOF, NDOF_FMC_OFF, IMUPLUS.",
+      sensor_mode_.c_str());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
   if (info_.sensors.size() != 1) {
     RCLCPP_ERROR(logger_, "Expected exactly 1 <sensor> element, got %zu", info_.sensors.size());
     return hardware_interface::CallbackReturn::ERROR;
@@ -180,8 +202,9 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 
   RCLCPP_INFO(
     logger_,
-    "Initialized with parameters: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s, calib_file=%s",
-    i2c_bus_, i2c_addr_, axis_remap_.c_str(), enable_mock_ ? "true" : "false",
+    "Initialized: i2c_bus=%d i2c_addr=0x%02X axis_remap=%s sensor_mode=%s mock=%s calib_file=%s",
+    i2c_bus_, i2c_addr_, axis_remap_.c_str(), sensor_mode_.c_str(),
+    enable_mock_ ? "true" : "false",
     calib_file_.empty() ? "(none)" : calib_file_.c_str());
 
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -280,16 +303,17 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   RCLCPP_INFO(logger_, "Axis remap %s applied (cfg=0x%02X sign=0x%02X)",
     axis_remap_.c_str(), remap_cfg, remap_sign);
 
-  // Switch to NDOF fusion mode
-  comres = bno055_set_operation_mode(BNO055_OPERATION_MODE_NDOF);
+  // Switch to configured fusion mode
+  comres = bno055_set_operation_mode(kOperationMode.at(sensor_mode_));
   if (comres != BNO055_SUCCESS) {
-    RCLCPP_ERROR(logger_, "Failed to set NDOF operation mode (err=%d)", comres);
+    RCLCPP_ERROR(
+      logger_, "Failed to set %s operation mode (err=%d)", sensor_mode_.c_str(), comres);
     bno055_i2c_close();
     return hardware_interface::CallbackReturn::ERROR;
   }
   rclcpp::sleep_for(std::chrono::milliseconds(20));  // datasheet: >=7 ms
 
-  RCLCPP_INFO(logger_, "BNO055 configured in NDOF fusion mode");
+  RCLCPP_INFO(logger_, "BNO055 configured in %s fusion mode", sensor_mode_.c_str());
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 

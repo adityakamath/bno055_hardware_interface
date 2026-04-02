@@ -37,6 +37,10 @@ namespace bno055_hardware_interface
  *                    When the file exists offsets are loaded onto the
  *                    sensor during on_configure before entering NDOF mode.
  *                    Leave empty (default) to rely on in-sensor calibration.
+ *   - sensor_mode  : Fusion operation mode (default: "NDOF"). One of:
+ *                    "NDOF"         — 9-DOF fusion, absolute orientation (uses magnetometer)
+ *                    "NDOF_FMC_OFF" — same as NDOF but fast mag calibration disabled
+ *                    "IMUPLUS"      — 6-DOF fusion, relative orientation, no magnetometer
  *
  * STATE INTERFACES (sensor_name prefix set in URDF):
  *   orientation.x / .y / .z / .w
@@ -88,6 +92,7 @@ private:
   std::string axis_remap_{"P1"};
   bool        enable_mock_{false};
   std::string calib_file_{};  // empty = no file, do not attempt to load
+  std::string sensor_mode_{"NDOF"};  // fusion operation mode
 
   // Consecutive read failures before returning ERROR (threshold = 10)
   int consecutive_read_errors_{0};

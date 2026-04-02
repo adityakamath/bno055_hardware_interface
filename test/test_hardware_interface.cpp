@@ -81,6 +81,16 @@ TEST(InitTest, ValidParams)
   EXPECT_EQ(init(calib), CallbackReturn::SUCCESS);
 }
 
+TEST(InitTest, ValidAllSensorModes)
+{
+  for (const auto & mode : {"NDOF", "NDOF_FMC_OFF", "IMUPLUS"}) {
+    bno055_hardware_interface::BNO055HardwareInterface hw;
+    auto info = make_valid_imu_info();
+    info.hardware_parameters["sensor_mode"] = mode;
+    EXPECT_EQ(hw.on_init(info), CallbackReturn::SUCCESS) << "sensor_mode=" << mode;
+  }
+}
+
 TEST(InitTest, ValidAllAxisRemaps)
 {
   for (const auto & remap : {"P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"}) {
@@ -118,6 +128,10 @@ TEST(InitTest, InvalidParamsFail)
   auto bad_addr = make_valid_imu_info();
   bad_addr.hardware_parameters["i2c_addr"] = "XZ";
   EXPECT_EQ(init(bad_addr), CallbackReturn::ERROR);
+
+  auto bad_mode = make_valid_imu_info();
+  bad_mode.hardware_parameters["sensor_mode"] = "ACCGYRO";
+  EXPECT_EQ(init(bad_mode), CallbackReturn::ERROR);
 }
 
 // ── export_state_interfaces ───────────────────────────────────────────────────
