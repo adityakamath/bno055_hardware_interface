@@ -10,25 +10,81 @@
 
 #include "bno055_hardware_interface/bno055_hardware_interface.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <map>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "pluginlib/class_list_macros.hpp"
 
-PLUGINLIB_EXPORT_CLASS(
-  bno055_hardware_interface::BNO055HardwareInterface,
-  hardware_interface::SensorInterface)
-
-namespace bno055_hardware_interface
+namespace
 {
 
+bool parse_calib_yaml(
+  const std::string & path,
+  bno055_accel_offset_t & ao,
+  bno055_gyro_offset_t & go,
+  bno055_mag_offset_t & mo)
+{
+  std::ifstream f(path);
+  if (!f) {return false;}
+
+  std::unordered_map<std::string, int16_t> vals;
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.empty() || line[0] == '#') {continue;}
+    const auto colon = line.find(':');
+    if (colon == std::string::npos) {continue;}
+    std::string key = line.substr(0, colon);
+    while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) {
+      key.pop_back();
+    }
+    try {
+      vals[key] = static_cast<int16_t>(std::stoi(line.substr(colon + 1)));
+    } catch (const std::exception & e) {
+      RCLCPP_WARN(
+        rclcpp::get_logger("bno055_calib"),
+        "Ignoring malformed calibration value for '%s': %s", key.c_str(), e.what());
+      continue;
+    }
+  }
+
+  auto get = [&](const std::string & k) -> int16_t {
+      const auto it = vals.find(k);
+      return (it != vals.end()) ? it->second : int16_t(0);
+    };
+
+  ao = bno055_accel_offset_t{};
+  ao.x = get("accel_offset_x");
+  ao.y = get("accel_offset_y");
+  ao.z = get("accel_offset_z");
+  ao.r = get("accel_radius");
+
+  go = bno055_gyro_offset_t{};
+  go.x = get("gyro_offset_x");
+  go.y = get("gyro_offset_y");
+  go.z = get("gyro_offset_z");
+
+  mo = bno055_mag_offset_t{};
+  mo.x = get("mag_offset_x");
+  mo.y = get("mag_offset_y");
+  mo.z = get("mag_offset_z");
+  mo.r = get("mag_radius");
+
+  return true;
+}
+
 // Quaternion raw -> unit: divide by 2^14 (Bosch datasheet §3.6.5.5)
-static constexpr double QUATERNION_SCALE = 1.0 / 16384.0;
+constexpr double QUATERNION_SCALE = 1.0 / 16384.0;
 
 // Axis remap lookup: P0-P7 -> { AXIS_MAP_CONFIG byte, AXIS_MAP_SIGN byte }
 // Values from BNO055 datasheet Table 3-4 (same as flynneva/bno055)
-static const std::map<std::string, std::pair<uint8_t, uint8_t>> kAxisRemap = {
+const std::map<std::string, std::pair<uint8_t, uint8_t>> kAxisRemap = {
   {"P0", {0x21, 0x04}},
   {"P1", {0x24, 0x00}},
   {"P2", {0x24, 0x06}},
@@ -38,6 +94,11 @@ static const std::map<std::string, std::pair<uint8_t, uint8_t>> kAxisRemap = {
   {"P6", {0x21, 0x07}},
   {"P7", {0x24, 0x05}},
 };
+
+}  // namespace
+
+namespace bno055_hardware_interface
+{
 
 // ── on_init: parse URDF hardware parameters ──────────────────────────────────
 
@@ -53,7 +114,6 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
-  logger_ = rclcpp::get_logger("BNO055HardwareInterface");
   RCLCPP_INFO(logger_, "Initializing BNO055 hardware interface: %s", info_.name.c_str());
 
   // i2c_bus (default: 1)
@@ -95,11 +155,6 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   // calib_file (default: empty — no file, rely on in-sensor calibration)
   if (info_.hardware_parameters.count("calib_file")) {
     calib_file_ = info_.hardware_parameters.at("calib_file");
-    // Expand ~ to $HOME
-    if (!calib_file_.empty() && calib_file_[0] == '~') {
-      const char * home = std::getenv("HOME");
-      if (home) {calib_file_ = std::string(home) + calib_file_.substr(1);}
-    }
   }
 
   if (info_.sensors.size() != 1) {
@@ -107,9 +162,25 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
+  // Validate that each declared state interface name matches one of the 10 expected.
+  const std::vector<std::string> kExpected = {
+    "orientation.x", "orientation.y", "orientation.z", "orientation.w",
+    "angular_velocity.x", "angular_velocity.y", "angular_velocity.z",
+    "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z",
+  };
+  for (const auto & si : info_.sensors[0].state_interfaces) {
+    if (std::find(kExpected.begin(), kExpected.end(), si.name) == kExpected.end()) {
+      RCLCPP_ERROR(
+        logger_, "Unexpected state interface '%s'. Expected one of: "
+        "orientation.{x,y,z,w}, angular_velocity.{x,y,z}, linear_acceleration.{x,y,z}",
+        si.name.c_str());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
+  }
+
   RCLCPP_INFO(
     logger_,
-    "Configured: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s, calib_file=%s",
+    "Initialized with parameters: i2c_bus=%d, i2c_addr=0x%02X, axis_remap=%s, mock=%s, calib_file=%s",
     i2c_bus_, i2c_addr_, axis_remap_.c_str(), enable_mock_ ? "true" : "false",
     calib_file_.empty() ? "(none)" : calib_file_.c_str());
 
@@ -150,8 +221,8 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
     return hardware_interface::CallbackReturn::ERROR;
   }
   RCLCPP_INFO(
-    logger_, "BNO055 detected: chip_id=0x%02X sw_rev=%d.%d",
-    sensor_.chip_id, sensor_.sw_rev_id >> 8, sensor_.sw_rev_id & 0xFF);
+    logger_, "BNO055 detected: chip_id=0x%02X sw_rev=0x%04X",
+    sensor_.chip_id, sensor_.sw_rev_id);
 
   // Switch to CONFIG mode to apply settings
   comres = bno055_set_operation_mode(BNO055_OPERATION_MODE_CONFIG);
@@ -169,13 +240,17 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   // Gyro unit: radians per second
   comres = bno055_set_gyro_unit(BNO055_GYRO_UNIT_RPS);
   if (comres != BNO055_SUCCESS) {
-    RCLCPP_WARN(logger_, "Failed to set gyro unit to rps (err=%d)", comres);
+    RCLCPP_ERROR(logger_, "Failed to set gyro unit to rps (err=%d)", comres);
+    bno055_i2c_close();
+    return hardware_interface::CallbackReturn::ERROR;
   }
 
   // Accel unit: m/s^2
   comres = bno055_set_accel_unit(BNO055_ACCEL_UNIT_MSQ);
   if (comres != BNO055_SUCCESS) {
-    RCLCPP_WARN(logger_, "Failed to set accel unit to m/s^2 (err=%d)", comres);
+    RCLCPP_ERROR(logger_, "Failed to set accel unit to m/s^2 (err=%d)", comres);
+    bno055_i2c_close();
+    return hardware_interface::CallbackReturn::ERROR;
   }
 
   // Apply saved calibration offsets if a file was provided.
@@ -186,8 +261,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
     } else {
       RCLCPP_WARN(
         logger_,
-        "Calibration file '%s' not found or unreadable — starting uncalibrated."
-        " Run bno055_calib_node to create it.",
+        "Calibration file '%s' not found or unreadable — starting uncalibrated.",
         calib_file_.c_str());
     }
   }
@@ -197,8 +271,12 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   const auto & remap = kAxisRemap.at(axis_remap_);
   u8 remap_cfg  = remap.first;
   u8 remap_sign = remap.second;
-  sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_CONFIG_ADDR, &remap_cfg, 1);
-  sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_SIGN_ADDR,   &remap_sign, 1);
+  if (sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_CONFIG_ADDR, &remap_cfg, 1) != 0) {
+    RCLCPP_WARN(logger_, "Axis remap: failed to write AXIS_MAP_CONFIG register");
+  }
+  if (sensor_.bus_write(sensor_.dev_addr, BNO055_AXIS_MAP_SIGN_ADDR, &remap_sign, 1) != 0) {
+    RCLCPP_WARN(logger_, "Axis remap: failed to write AXIS_MAP_SIGN register");
+  }
   RCLCPP_INFO(logger_, "Axis remap %s applied (cfg=0x%02X sign=0x%02X)",
     axis_remap_.c_str(), remap_cfg, remap_sign);
 
@@ -220,48 +298,11 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
 
 bool BNO055HardwareInterface::load_calib_offsets()
 {
-  std::ifstream f(calib_file_);
-  if (!f) {return false;}
-
-  std::unordered_map<std::string, int16_t> vals;
-  std::string line;
-  while (std::getline(f, line)) {
-    if (line.empty() || line[0] == '#') {continue;}
-    auto colon = line.find(':');
-    if (colon == std::string::npos) {continue;}
-    std::string key = line.substr(0, colon);
-    // trim trailing whitespace
-    while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) {
-      key.pop_back();
-    }
-    try {
-      vals[key] = static_cast<int16_t>(std::stoi(line.substr(colon + 1)));
-    } catch (...) {
-      continue;
-    }
-  }
-
-  auto get = [&](const std::string & k) -> int16_t {
-      auto it = vals.find(k);
-      return (it != vals.end()) ? it->second : int16_t(0);
-    };
-
   bno055_accel_offset_t ao{};
-  ao.x = get("accel_offset_x");
-  ao.y = get("accel_offset_y");
-  ao.z = get("accel_offset_z");
-  ao.r = get("accel_radius");
-
   bno055_gyro_offset_t go{};
-  go.x = get("gyro_offset_x");
-  go.y = get("gyro_offset_y");
-  go.z = get("gyro_offset_z");
-
   bno055_mag_offset_t mo{};
-  mo.x = get("mag_offset_x");
-  mo.y = get("mag_offset_y");
-  mo.z = get("mag_offset_z");
-  mo.r = get("mag_radius");
+
+  if (!parse_calib_yaml(calib_file_, ao, go, mo)) {return false;}
 
   bool ok =
     (bno055_write_accel_offset(&ao) == BNO055_SUCCESS) &&
@@ -311,6 +352,17 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  if (!enable_mock_) {
+    bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND);
+    bno055_i2c_close();
+    RCLCPP_INFO(logger_, "BNO055 shut down: suspended and I2C closed");
+  }
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
 // ── export_state_interfaces ───────────────────────────────────────────────────
 
 std::vector<hardware_interface::StateInterface>
@@ -343,24 +395,31 @@ hardware_interface::return_type BNO055HardwareInterface::read(
     return hardware_interface::return_type::OK;
   }
 
-  s32 comres = BNO055_SUCCESS;
-
   // Orientation — raw quaternion (s16 values, scale = 1/2^14)
   struct bno055_quaternion_t quat;
-  comres += bno055_read_quaternion_wxyz(&quat);
-
   // Angular velocity — convert to rad/s directly (gyro unit set to RPS)
   struct bno055_gyro_double_t gyro;
-  comres += bno055_convert_double_gyro_xyz_rps(&gyro);
-
   // Linear acceleration (gravity-compensated, m/s^2)
   struct bno055_linear_accel_double_t lin_accel;
-  comres += bno055_convert_double_linear_accel_xyz_msq(&lin_accel);
 
-  if (comres != BNO055_SUCCESS) {
-    RCLCPP_WARN(logger_, "BNO055 read error (%d) - keeping previous values", comres);
-    return hardware_interface::return_type::OK;  // keep last good values
+  bool ok =
+    (bno055_read_quaternion_wxyz(&quat) == BNO055_SUCCESS) &&
+    (bno055_convert_double_gyro_xyz_rps(&gyro) == BNO055_SUCCESS) &&
+    (bno055_convert_double_linear_accel_xyz_msq(&lin_accel) == BNO055_SUCCESS);
+
+  if (!ok) {
+    ++consecutive_read_errors_;
+    if (consecutive_read_errors_ >= 10) {
+      RCLCPP_ERROR(
+        logger_, "BNO055: %d consecutive read failures — reporting ERROR",
+        consecutive_read_errors_);
+      return hardware_interface::return_type::ERROR;
+    }
+    RCLCPP_WARN(logger_, "BNO055 read error (streak=%d) — keeping previous values",
+      consecutive_read_errors_);
+    return hardware_interface::return_type::OK;
   }
+  consecutive_read_errors_ = 0;
 
   // Normalize quaternion (raw values scale to unit quaternion via QUATERNION_SCALE)
   const double qw = quat.w * QUATERNION_SCALE;
@@ -387,3 +446,7 @@ hardware_interface::return_type BNO055HardwareInterface::read(
 }
 
 }  // namespace bno055_hardware_interface
+
+PLUGINLIB_EXPORT_CLASS(
+  bno055_hardware_interface::BNO055HardwareInterface,
+  hardware_interface::SensorInterface)

@@ -2,7 +2,7 @@ controller_manager:
   ros__parameters:
     update_rate: 100  # Hz - Control loop frequency
 
-    # IMU Sensor Broadcaster - Publishes sensor_msgs/Imu to /bno055/imu
+    # IMU Sensor Broadcaster - Publishes sensor_msgs/Imu to /imu_sensor_broadcaster/imu
     imu_sensor_broadcaster:
       type: imu_sensor_broadcaster/IMUSensorBroadcaster
 

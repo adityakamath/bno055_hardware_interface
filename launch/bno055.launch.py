@@ -5,17 +5,19 @@ Launch file for the BNO055 IMU hardware interface.
 Starts the complete ros2_control stack for the BNO055 IMU, including:
 - Robot state publisher for TF transforms
 - Controller manager with the BNO055 SensorInterface hardware plugin
-- IMU sensor broadcaster publishing sensor_msgs/Imu to /bno055/imu
+- IMU sensor broadcaster publishing sensor_msgs/Imu to /imu_sensor_broadcaster/imu
 
 Example usage:
     ros2 launch bno055_hardware_interface bno055.launch.py
     ros2 launch bno055_hardware_interface bno055.launch.py i2c_bus:=1 i2c_addr:=28
     ros2 launch bno055_hardware_interface bno055.launch.py axis_remap:=P2
     ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
+    ros2 launch bno055_hardware_interface bno055.launch.py publish_tf:=true
 """
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -45,10 +47,20 @@ def generate_launch_description():
             default_value='false',
             description='Use mock/simulation mode (no hardware required)'
         ),
+        # To load saved calibration offsets instead of relying on auto-calibration,
+        # uncomment the argument below and the corresponding lines in the xacro command.
+        # The config/bno055_calib.yaml file in this package shows the expected format.
+        # DeclareLaunchArgument(
+        #     'calib_file',
+        #     default_value='',
+        #     description='Path to calibration YAML file (see config/bno055_calib.yaml)'
+        # ),
         DeclareLaunchArgument(
-            'calib_file',
-            default_value='',
-            description='Path to calibration YAML file saved by bno055_calib_node (empty = none)'
+            'publish_tf',
+            default_value='false',
+            description=(
+                'Publish a dynamic world→base_link TF from IMU orientation for RViz visualization'
+            ),
         ),
     ]
 
@@ -56,7 +68,8 @@ def generate_launch_description():
     i2c_addr = LaunchConfiguration('i2c_addr')
     axis_remap = LaunchConfiguration('axis_remap')
     enable_mock = LaunchConfiguration('enable_mock')
-    calib_file = LaunchConfiguration('calib_file')
+    # calib_file = LaunchConfiguration('calib_file')
+    publish_tf = LaunchConfiguration('publish_tf')
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -74,8 +87,8 @@ def generate_launch_description():
             'axis_remap:=', axis_remap,
             ' ',
             'enable_mock:=', enable_mock,
-            ' ',
-            'calib_file:=', calib_file,
+            # Uncomment to pass a calibration offsets file to the plugin:
+            # ' ', 'calib_file:=', calib_file,
         ]
     )
     robot_description = {
@@ -110,10 +123,21 @@ def generate_launch_description():
         arguments=['imu_sensor_broadcaster', '--controller-manager', '/controller_manager'],
     )
 
+    # Optional: relay IMU orientation to TF for RViz 3D visualization.
+    # Set fixed frame to 'world' in RViz to see the sensor orientation animate.
+    imu_tf_broadcaster_node = Node(
+        package='bno055_hardware_interface',
+        executable='imu_tf_broadcaster',
+        name='imu_tf_broadcaster',
+        output='screen',
+        condition=IfCondition(publish_tf),
+    )
+
     return LaunchDescription(
         declared_arguments + [
             robot_state_publisher_node,
             controller_manager_node,
             imu_broadcaster_spawner,
+            imu_tf_broadcaster_node,
         ]
     )

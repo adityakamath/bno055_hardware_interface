@@ -10,16 +10,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Use system Python even when a virtualenv is active (ament_cmake needs Python internally)
-set(Python3_FIND_VIRTUALENV STANDARD)
-
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(diagnostic_msgs REQUIRED)
-find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 # ── Bosch Sensortec BNO055 C driver (external submodule) ────────────────────
 set(BNO055_DRIVER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/BNO055_driver)
@@ -44,6 +42,7 @@ target_include_directories(bno055_i2c PUBLIC
 )
 target_link_libraries(bno055_i2c i2c bno055_driver)
 
+
 # ── BNO055 Hardware Interface (ros2_control sensor plugin) ──────────────────
 add_library(${PROJECT_NAME} SHARED
   src/bno055_hardware_interface.cpp
@@ -67,22 +66,17 @@ target_link_libraries(${PROJECT_NAME}
 # Export hardware interface as plugin
 pluginlib_export_plugin_description_file(hardware_interface bno055_hardware_interface.xml)
 
-# ── BNO055 calibration node (standalone executable) ──────────────────────────
-add_executable(bno055_calib_node
-  src/bno055_calib_node.cpp
+# ── IMU TF broadcaster (optional visualization helper) ───────────────────────
+add_executable(imu_tf_broadcaster
+  src/imu_tf_broadcaster.cpp
 )
-target_include_directories(bno055_calib_node PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  ${BNO055_DRIVER_DIR}
-)
-target_link_libraries(bno055_calib_node
-  bno055_driver
-  bno055_i2c
+target_link_libraries(imu_tf_broadcaster
   rclcpp::rclcpp
-  ${diagnostic_msgs_TARGETS}
-  ${std_srvs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  tf2_ros::tf2_ros
 )
-install(TARGETS bno055_calib_node
+install(TARGETS imu_tf_broadcaster
   DESTINATION lib/${PROJECT_NAME}
 )
 

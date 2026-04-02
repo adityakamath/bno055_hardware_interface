@@ -1,0 +1,16 @@
+# BNO055 calibration profile
+# Sample template — replace zeros with real offsets from your sensor.
+# Accelerometer: calibrated (3/3)
+accel_offset_x: 0
+accel_offset_y: 0
+accel_offset_z: 0
+accel_radius:   1000
+# Gyroscope: calibrated (3/3)
+gyro_offset_x:  0
+gyro_offset_y:  0
+gyro_offset_z:  0
+# Magnetometer: calibrated (3/3)
+mag_offset_x:   0
+mag_offset_y:   0
+mag_offset_z:   0
+mag_radius:     0

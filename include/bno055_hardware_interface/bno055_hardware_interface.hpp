@@ -1,26 +1,7 @@
-// Copyright 2026 Aditya Kamath
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #ifndef BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 #define BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 
-#include <fstream>
-#include <map>
-#include <sstream>
 #include <string>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
 // Bosch Sensortec driver (C) — pull in with C linkage
@@ -48,11 +29,11 @@ namespace bno055_hardware_interface
  *
  * HARDWARE PARAMETERS (from ros2_control URDF <sensor>):
  *   - i2c_bus      : I2C bus number, e.g. "1" for /dev/i2c-1  (default: "1")
- *   - i2c_addr     : Hex I2C address, e.g. "0x28"             (default: "0x28")
+ *   - i2c_addr     : Hex I2C address without 0x prefix, e.g. "28"  (default: "28")
  *   - axis_remap   : Placement config P0-P7 (datasheet §3.4)  (default: "P1")
  *   - enable_mock  : Skip real hardware, publish zeros         (default: "false")
- *   - calib_file   : Path to YAML calibration file saved by
- *                    bno055_calib_node (e.g. ~/.ros/bno055_calib.yaml).
+ *   - calib_file   : Absolute path to YAML calibration file
+ *                    (e.g. /home/user/.ros/bno055_calib.yaml).
  *                    When the file exists offsets are loaded onto the
  *                    sensor during on_configure before entering NDOF mode.
  *                    Leave empty (default) to rely on in-sensor calibration.
@@ -85,6 +66,9 @@ public:
   hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  hardware_interface::CallbackReturn on_shutdown(
+    const rclcpp_lifecycle::State & previous_state) override;
+
   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
   hardware_interface::return_type read(
@@ -104,6 +88,9 @@ private:
   std::string axis_remap_{"P1"};
   bool        enable_mock_{false};
   std::string calib_file_{};  // empty = no file, do not attempt to load
+
+  // Consecutive read failures before returning ERROR (threshold = 10)
+  int consecutive_read_errors_{0};
 
   // Bosch Sensortec driver handle
   bno055_t sensor_{};
