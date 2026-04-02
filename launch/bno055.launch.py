@@ -71,6 +71,14 @@ def generate_launch_description():
                 'Publish a dynamic world→base_link TF from IMU orientation for RViz visualization'
             ),
         ),
+        DeclareLaunchArgument(
+            'publish_diagnostics',
+            default_value='false',
+            description=(
+                'Run the bno055_diagnostics companion node to publish sensor health '
+                'and calibration status to /diagnostics at 1 Hz'
+            ),
+        ),
     ]
 
     i2c_bus = LaunchConfiguration('i2c_bus')
@@ -80,6 +88,7 @@ def generate_launch_description():
     sensor_mode = LaunchConfiguration('sensor_mode')
     # calib_file = LaunchConfiguration('calib_file')
     publish_tf = LaunchConfiguration('publish_tf')
+    publish_diagnostics = LaunchConfiguration('publish_diagnostics')
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -145,11 +154,28 @@ def generate_launch_description():
         condition=IfCondition(publish_tf),
     )
 
+    # Optional: publish sensor health and calibration status to /diagnostics at 1 Hz.
+    # Compatible with rqt_robot_monitor and diagnostic_aggregator.
+    bno055_diagnostics_node = Node(
+        package='bno055_hardware_interface',
+        executable='bno055_diagnostics',
+        name='bno055_diagnostics',
+        output='screen',
+        parameters=[{
+            'i2c_bus':     i2c_bus,
+            'i2c_addr':    ParameterValue(i2c_addr, value_type=str),
+            'sensor_mode': sensor_mode,
+            'enable_mock': enable_mock,
+        }],
+        condition=IfCondition(publish_diagnostics),
+    )
+
     return LaunchDescription(
         declared_arguments + [
             robot_state_publisher_node,
             controller_manager_node,
             imu_broadcaster_spawner,
             imu_tf_broadcaster_node,
+            bno055_diagnostics_node,
         ]
     )

@@ -61,9 +61,10 @@ def generate_test_description():
     bno055_launch = os.path.join(pkg_share, 'launch', 'bno055.launch.py')
 
     launch_args = {
-        'i2c_bus':    '1',
-        'i2c_addr':   '28',
-        'axis_remap': 'P1',
+        'i2c_bus':              '1',
+        'i2c_addr':             '28',
+        'axis_remap':           'P1',
+        'publish_diagnostics':  'true',
     }
     if not BNO055_AVAILABLE:
         launch_args['enable_mock'] = 'true'
@@ -251,4 +252,48 @@ class TestBNO055Launch(unittest.TestCase):
             len(received), 1,
             f'IMU topic published only {len(received)} message(s) in 2 s'
             ' — expected continuous stream',
+        )
+
+    # ── Diagnostics ──────────────────────────────────────────────
+
+    def test_diagnostics_topic_published(self):
+        """Verify /diagnostics publishes at least one DiagnosticArray message."""
+        from diagnostic_msgs.msg import DiagnosticArray
+        msgs = _wait_for_topic(
+            self.node, '/diagnostics', DiagnosticArray, timeout_sec=15.0)
+        self.assertTrue(msgs, '/diagnostics not received within 15 s')
+
+    def test_diagnostics_status_level_valid(self):
+        """Verify the BNO055 DiagnosticStatus level is a valid enum value."""
+        from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
+
+        # Collect /diagnostics messages for up to 15 s; bno055_diagnostics publishes
+        # at 1 Hz and controller_manager also uses this topic, so we must search all
+        # received messages rather than only the first one.
+        received = []
+        sub = self.node.create_subscription(
+            DiagnosticArray, '/diagnostics', received.append, 10)
+        deadline = time.time() + 15.0
+        bno_status = None
+        while time.time() < deadline:
+            rclpy.spin_once(self.node, timeout_sec=0.1)
+            for msg in received:
+                for s in msg.status:
+                    if 'BNO055' in s.name:
+                        bno_status = s
+                        break
+                if bno_status:
+                    break
+            if bno_status:
+                break
+        self.node.destroy_subscription(sub)
+
+        self.assertIsNotNone(
+            bno_status,
+            'No BNO055 DiagnosticStatus found in /diagnostics within 15 s',
+        )
+        self.assertIn(
+            bno_status.level,
+            [DiagnosticStatus.OK, DiagnosticStatus.WARN, DiagnosticStatus.ERROR],
+            f'Unexpected DiagnosticStatus level: {bno_status.level}',
         )

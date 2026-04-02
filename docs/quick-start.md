@@ -134,6 +134,18 @@ ros2 launch bno055_hardware_interface bno055.launch.py \
 ros2 launch bno055_hardware_interface bno055.launch.py axis_remap:=P3
 ```
 
+### Example 6: No Magnetometer (IMUPLUS Mode)
+
+```bash
+# Gyroscope + accelerometer only — no compass heading, but immune to magnetic interference
+ros2 launch bno055_hardware_interface bno055.launch.py sensor_mode:=IMUPLUS
+```
+
+```bash
+# Disable fast magnetometer calibration — for magnetically noisy environments
+ros2 launch bno055_hardware_interface bno055.launch.py sensor_mode:=NDOF_FMC_OFF
+```
+
 ---
 
 ## Calibration Workflow
@@ -252,6 +264,12 @@ The node subscribes to `/imu_sensor_broadcaster/imu` and publishes a TF transfor
       <td style="padding: 0.6em; border: none;">Mounting orientation P0–P7 per BNO055 datasheet §3.4 (see <a href="design.md">design.md</a>)</td>
     </tr>
     <tr style="background: #f0f0f0;">
+      <td style="padding: 0.6em; border: none;"><code>sensor_mode</code></td>
+      <td style="padding: 0.6em; border: none;"><code>NDOF</code></td>
+      <td style="padding: 0.6em; border: none;">string</td>
+      <td style="padding: 0.6em; border: none;">Fusion mode: <code>NDOF</code> (9-DOF absolute, default), <code>NDOF_FMC_OFF</code> (9-DOF, magnetically noisy env), <code>IMUPLUS</code> (6-DOF, no magnetometer)</td>
+    </tr>
+    <tr style="background: #ffffff;">
       <td style="padding: 0.6em; border: none;"><code>enable_mock</code></td>
       <td style="padding: 0.6em; border: none;"><code>false</code></td>
       <td style="padding: 0.6em; border: none;">bool</td>
@@ -268,6 +286,12 @@ The node subscribes to `/imu_sensor_broadcaster/imu` and publishes a TF transfor
       <td style="padding: 0.6em; border: none;"><code>false</code></td>
       <td style="padding: 0.6em; border: none;">bool</td>
       <td style="padding: 0.6em; border: none;">Enable the <code>imu_tf_broadcaster</code> relay node to publish <code>world → base_link</code> TF</td>
+    </tr>
+    <tr style="background: #ffffff;">
+      <td style="padding: 0.6em; border: none;"><code>publish_diagnostics</code></td>
+      <td style="padding: 0.6em; border: none;"><code>false</code></td>
+      <td style="padding: 0.6em; border: none;">bool</td>
+      <td style="padding: 0.6em; border: none;">Run the <code>bno055_diagnostics</code> node to publish calibration status and sensor health to <code>/diagnostics</code> at 1 Hz</td>
     </tr>
   </tbody>
 </table>
@@ -328,6 +352,18 @@ Expected topics when running:
 ```bash
 ros2 run tf2_tools view_frames
 ```
+
+### 6. Monitor Diagnostics (when publish_diagnostics:=true)
+
+```bash
+# Echo raw DiagnosticArray messages
+ros2 topic echo /diagnostics
+
+# Visual monitor in a terminal
+ros2 run rqt_robot_monitor rqt_robot_monitor
+```
+
+Each message contains a single `DiagnosticStatus` named `BNO055 IMU` with key-value pairs for system status, per-subsystem calibration levels (0–3), and gyroscope die temperature. The level is `OK` when fusion is running and all used subsystems report calibration ≥ 1, `WARN` while calibrating, and `ERROR` on I2C failure.
 
 ---
 
@@ -436,7 +472,7 @@ colcon test-result --verbose
 
 | Test File | Type | Tests | What Is Covered |
 |-----------|------|-------|-----------------|
-| `test_hardware_interface.cpp` | C++ unit | 8 | Parameter parsing, state interface export, mock-mode lifecycle, read behaviour |
+| `test_hardware_interface.cpp` | C++ unit | 9 | Parameter parsing (incl. sensor_mode), state interface export, mock-mode lifecycle, read behaviour |
 | `test_bno055.launch.py` | Launch integration | 8 | Full bringup with `enable_mock:=true`, node presence, topic availability |
 | Linters | Style | 4+ | `flake8`, `pep257` (C++ linters disabled to avoid recursing into the Bosch vendor tree) |
 

@@ -15,6 +15,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -77,6 +78,24 @@ target_link_libraries(imu_tf_broadcaster
   tf2_ros::tf2_ros
 )
 install(TARGETS imu_tf_broadcaster
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# ── BNO055 Diagnostics node (optional companion, publishes /diagnostics at 1 Hz) ─
+add_executable(bno055_diagnostics
+  src/bno055_diagnostics.cpp
+)
+target_include_directories(bno055_diagnostics PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  ${BNO055_DRIVER_DIR}
+)
+target_link_libraries(bno055_diagnostics
+  bno055_driver
+  bno055_i2c
+  rclcpp::rclcpp
+  ${diagnostic_msgs_TARGETS}
+)
+install(TARGETS bno055_diagnostics
   DESTINATION lib/${PROJECT_NAME}
 )
 

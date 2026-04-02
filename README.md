@@ -15,7 +15,7 @@
 
 ## Features
 
-- **NDOF Sensor Fusion**: Absolute orientation from on-chip gyroscope + accelerometer + magnetometer fusion — no quaternion integration drift
+- **Configurable Sensor Fusion**: Three on-chip fusion modes — `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF without fast magnetometer calibration, for magnetically noisy environments), and `IMUPLUS` (6-DOF gyro + accel only, no magnetometer) — selected at launch via `sensor_mode`
 - **10 State Interfaces**: Orientation quaternion (x, y, z, w), angular velocity (rad/s), and linear acceleration (m/s²) — fully compatible with `imu_sensor_broadcaster`
 - **Bosch SensorAPI Integration**: Uses the official [Bosch BNO055 SensorAPI](https://github.com/BoschSensortec/BNO055_SensorAPI) C library (git submodule); no third-party wrappers
 - **Axis Remapping**: 8 standard mounting orientations (P0–P7) configurable at launch, matching BNO055 datasheet §3.4
@@ -44,6 +44,7 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
     <param name="i2c_bus">1</param>
     <param name="i2c_addr">28</param>
     <param name="axis_remap">P1</param>
+    <param name="sensor_mode">NDOF</param>
     <param name="enable_mock">false</param>
     <param name="calib_file"></param>
   </hardware>
@@ -69,6 +70,7 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
 | `i2c_bus` | `int` | `1` | I2C bus number — plugin opens `/dev/i2c-{n}` |
 | `i2c_addr` | `string` | `"28"` | I2C address as hex without `0x` prefix (`28` = 0x28 ADR-low, `29` = 0x29 ADR-high) |
 | `axis_remap` | `string` | `"P1"` | Mounting orientation P0–P7 per BNO055 datasheet §3.4 |
+| `sensor_mode` | `string` | `"NDOF"` | Fusion mode: `NDOF` (9-DOF absolute), `NDOF_FMC_OFF` (9-DOF, magnetically noisy env), `IMUPLUS` (6-DOF, no magnetometer). Invalid values cause `on_init` to return `ERROR` |
 | `enable_mock` | `bool` | `false` | Skip I2C initialisation; publish constant zero/identity values |
 | `calib_file` | `string` | `""` | Absolute path to calibration YAML; empty = start uncalibrated |
 
