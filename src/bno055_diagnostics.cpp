@@ -98,6 +98,15 @@ public:
       throw;
     }
 
+    // Precompute hardware_id string — used in every diagnostic publish
+    if (enable_mock_) {
+      hardware_id_ = "mock";
+    } else {
+      char buf[3];
+      snprintf(buf, sizeof(buf), "%02X", i2c_addr_);
+      hardware_id_ = "/dev/i2c-" + std::to_string(i2c_bus_) + " @ 0x" + std::string(buf);
+    }
+
     if (enable_mock_) {
       RCLCPP_INFO(get_logger(), "BNO055 diagnostics running in mock mode");
     } else {
@@ -143,7 +152,7 @@ private:
     if (enable_mock_) {
       DiagnosticStatus status;
       status.name        = "BNO055 IMU";
-      status.hardware_id = "mock";
+      status.hardware_id = hardware_id_;
       status.level       = DiagnosticStatus::WARN;
       status.message     = "Mock mode — no I2C hardware";
       status.values.push_back(kv("System Status", "Mock"));
@@ -155,13 +164,8 @@ private:
     }
 
     DiagnosticStatus status;
-    status.name     = "BNO055 IMU";
-    status.hardware_id = "/dev/i2c-" + std::to_string(i2c_bus_) +
-                         " @ 0x" + [this]() {
-                           char buf[3];
-                           snprintf(buf, sizeof(buf), "%02X", i2c_addr_);
-                           return std::string(buf);
-                         }();
+    status.name        = "BNO055 IMU";
+    status.hardware_id = hardware_id_;
 
     uint8_t sys_status = 0, sys_error = 0;
     uint8_t calib_sys = 0, calib_gyro = 0, calib_accel = 0, calib_mag = 0;
@@ -224,6 +228,7 @@ private:
   uint8_t     i2c_addr_{0x28};
   std::string sensor_mode_{"NDOF"};
   bool        enable_mock_{false};
+  std::string hardware_id_{};     // precomputed in constructor
 
   bno055_t  sensor_{};
 

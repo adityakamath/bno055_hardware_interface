@@ -62,6 +62,7 @@ Detailed sensor contributions in `NDOF` mode:
 
 The full hardware initialisation sequence executed in `on_configure()`:
 
+0. **Reset error counter** — `consecutive_read_errors_` is reset to 0, ensuring a clean retry budget on every configure attempt (including after `on_cleanup` / reconfigure cycles)
 1. **Open I2C bus** — `bno055_i2c_open("/dev/i2c-{bus}", addr)` via `i2c-dev` ioctl
 2. **Wire Bosch driver callbacks** — set `sensor_.bus_read`, `sensor_.bus_write`, `sensor_.delay_msec`, `sensor_.dev_addr`
 3. **`bno055_init()`** — reads chip ID register (expected `0xA0`), populates `sw_rev_id`; RCLCPP_INFO logs chip ID and software revision
@@ -76,11 +77,11 @@ In **mock mode** (`enable_mock_ = true`), the entire sequence is skipped and `on
 
 ### on_cleanup
 
-When the lifecycle node is cleaned up: `bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND)` puts the sensor into low-power state, then `bno055_i2c_close()` closes the file descriptor.
+When the lifecycle node is cleaned up: `bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND)` puts the sensor into low-power state, then `bno055_i2c_close()` closes the file descriptor. All state interface doubles are then reset to their initial values (identity quaternion `w=1`, zeros elsewhere) so that any subsequent re-configure starts from a clean slate.
 
 ### on_shutdown
 
-Identical to `on_cleanup` — suspends the sensor and closes the I2C file descriptor. Ensures clean teardown regardless of which lifecycle transition triggers the exit.
+Identical to `on_cleanup` — suspends the sensor, closes the I2C file descriptor, and resets all state doubles. Ensures clean teardown regardless of which lifecycle transition triggers the exit.
 
 ### on_read
 

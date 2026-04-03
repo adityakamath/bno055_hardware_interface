@@ -84,6 +84,14 @@ private:
   // Returns true if the file was found and applied, false if absent or on error.
   bool load_calib_offsets();
 
+  // Suspend the sensor and close the I2C file descriptor.
+  // Called by both on_cleanup and on_shutdown.
+  void close_hardware();
+
+  // Parse a boolean hardware parameter; returns default_value if the key is absent.
+  // Accepts only "true" — mirrors the xacro $(arg ...) string convention.
+  bool parse_bool_param(const std::string & key, bool default_value) const;
+
   rclcpp::Logger logger_;
 
   // Parameters

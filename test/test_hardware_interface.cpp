@@ -132,6 +132,15 @@ TEST(InitTest, InvalidParamsFail)
   auto bad_mode = make_valid_imu_info();
   bad_mode.hardware_parameters["sensor_mode"] = "ACCGYRO";
   EXPECT_EQ(init(bad_mode), CallbackReturn::ERROR);
+
+  // Unknown state interface name must be rejected
+  auto bad_iface = make_valid_imu_info();
+  bad_iface.sensors[0].state_interfaces.push_back([] {
+      hardware_interface::InterfaceInfo i;
+      i.name = "orientation.q";
+      return i;
+    }());
+  EXPECT_EQ(init(bad_iface), CallbackReturn::ERROR);
 }
 
 // ── export_state_interfaces ───────────────────────────────────────────────────
@@ -218,6 +227,18 @@ TEST_F(MockHwTest, ReconfigureAfterCleanup)
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
 
+TEST_F(MockHwTest, SameObjectReconfigureCycle)
+{
+  // ros2_control reuses the same plugin instance across lifecycle transitions.
+  // Verify that the same hw_ object can be configured, cleaned up, and
+  // configured again without creating a new instance.
+  ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_deactivate(active_state()),      CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_cleanup(inactive_state()),       CallbackReturn::SUCCESS);
+  EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+}
+
 TEST_F(MockHwTest, ReadOutputsValid)
 {
   ifaces_ = hw_->export_state_interfaces();
@@ -250,6 +271,42 @@ TEST_F(MockHwTest, MultipleReadsRemainStable)
   for (int i = 0; i < 20; ++i) {
     EXPECT_EQ(hw_->read(kTime, kPeriod), return_type::OK) << "iteration " << i;
   }
+}
+
+TEST_F(MockHwTest, StateResetAfterCleanup)
+{
+  // Export interfaces before configuring so they stay valid throughout.
+  ifaces_ = hw_->export_state_interfaces();
+  ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->read(kTime, kPeriod),               return_type::OK);
+
+  // Cleanup should reset all state doubles to their initial values.
+  ASSERT_EQ(hw_->on_cleanup(inactive_state()), CallbackReturn::SUCCESS);
+
+  EXPECT_DOUBLE_EQ(get("orientation.w"), 1.0);
+  EXPECT_DOUBLE_EQ(get("orientation.x"), 0.0);
+  EXPECT_DOUBLE_EQ(get("orientation.y"), 0.0);
+  EXPECT_DOUBLE_EQ(get("orientation.z"), 0.0);
+  EXPECT_DOUBLE_EQ(get("angular_velocity.x"),    0.0);
+  EXPECT_DOUBLE_EQ(get("angular_velocity.y"),    0.0);
+  EXPECT_DOUBLE_EQ(get("angular_velocity.z"),    0.0);
+  EXPECT_DOUBLE_EQ(get("linear_acceleration.x"), 0.0);
+  EXPECT_DOUBLE_EQ(get("linear_acceleration.y"), 0.0);
+  EXPECT_DOUBLE_EQ(get("linear_acceleration.z"), 0.0);
+}
+
+TEST_F(MockHwTest, ShutdownFromInactive)
+{
+  ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+  EXPECT_EQ(hw_->on_shutdown(inactive_state()),      CallbackReturn::SUCCESS);
+}
+
+TEST_F(MockHwTest, ShutdownFromActive)
+{
+  ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
+  EXPECT_EQ(hw_->on_shutdown(active_state()),        CallbackReturn::SUCCESS);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────

@@ -45,7 +45,7 @@ public:
     broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     sub_ = create_subscription<sensor_msgs::msg::Imu>(
       imu_topic_, 10,
-      [this](const sensor_msgs::msg::Imu & msg) { callback(msg); });
+      [this](const sensor_msgs::msg::Imu::ConstSharedPtr & msg) { callback(msg); });
 
     RCLCPP_INFO(
       get_logger(), "Relaying %s -> /tf (%s -> %s)",
@@ -53,16 +53,16 @@ public:
   }
 
 private:
-  void callback(const sensor_msgs::msg::Imu & msg)
+  void callback(const sensor_msgs::msg::Imu::ConstSharedPtr & msg)
   {
     geometry_msgs::msg::TransformStamped t;
-    t.header.stamp    = msg.header.stamp;
+    t.header.stamp    = msg->header.stamp;
     t.header.frame_id = parent_frame_;
     t.child_frame_id  = child_frame_;
     t.transform.translation.x = tx_;
     t.transform.translation.y = ty_;
     t.transform.translation.z = tz_;
-    t.transform.rotation      = msg.orientation;
+    t.transform.rotation      = msg->orientation;
     broadcaster_->sendTransform(t);
   }
 

@@ -118,6 +118,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  // TODO(adityakamath): migrate to the two-argument on_init overload when dropping Kilted support
   if (hardware_interface::SensorInterface::on_init(hardware_info) !=
     hardware_interface::CallbackReturn::SUCCESS)
   {
@@ -158,10 +159,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   }
 
   // enable_mock (default: false)
-  if (info_.hardware_parameters.count("enable_mock")) {
-    const std::string & v = info_.hardware_parameters.at("enable_mock");
-    enable_mock_ = (v == "true" || v == "1");
-  }
+  enable_mock_ = parse_bool_param("enable_mock", false);
 
   // calib_file (default: empty — no file, rely on in-sensor calibration)
   if (info_.hardware_parameters.count("calib_file")) {
@@ -216,6 +214,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(logger_, "Configuring BNO055...");
+  consecutive_read_errors_ = 0;
 
   if (enable_mock_) {
     RCLCPP_INFO(logger_, "Mock mode enabled - skipping I2C initialization");
@@ -277,7 +276,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   }
 
   // Apply saved calibration offsets if a file was provided.
-  // Offsets must be written in CONFIG mode, before switching to NDOF.
+  // Offsets must be written in CONFIG mode, before switching to the configured fusion mode.
   if (!calib_file_.empty()) {
     if (load_calib_offsets()) {
       RCLCPP_INFO(logger_, "Calibration offsets loaded from %s", calib_file_.c_str());
@@ -368,23 +367,34 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  if (!enable_mock_) {
-    bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND);
-    bno055_i2c_close();
-    RCLCPP_INFO(logger_, "BNO055 suspended and I2C closed");
-  }
+  close_hardware();
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  close_hardware();
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+void BNO055HardwareInterface::close_hardware()
+{
   if (!enable_mock_) {
     bno055_set_power_mode(BNO055_POWER_MODE_SUSPEND);
     bno055_i2c_close();
-    RCLCPP_INFO(logger_, "BNO055 shut down: suspended and I2C closed");
+    RCLCPP_INFO(logger_, "BNO055 suspended and I2C closed");
   }
-  return hardware_interface::CallbackReturn::SUCCESS;
+  hw_orientation_x_ = 0.0;
+  hw_orientation_y_ = 0.0;
+  hw_orientation_z_ = 0.0;
+  hw_orientation_w_ = 1.0;
+  hw_angular_velocity_x_    = 0.0;
+  hw_angular_velocity_y_    = 0.0;
+  hw_angular_velocity_z_    = 0.0;
+  hw_linear_acceleration_x_ = 0.0;
+  hw_linear_acceleration_y_ = 0.0;
+  hw_linear_acceleration_z_ = 0.0;
 }
 
 // ── export_state_interfaces ───────────────────────────────────────────────────
@@ -467,6 +477,14 @@ hardware_interface::return_type BNO055HardwareInterface::read(
   hw_linear_acceleration_z_ = lin_accel.z;
 
   return hardware_interface::return_type::OK;
+}
+
+bool BNO055HardwareInterface::parse_bool_param(
+  const std::string & key, bool default_value) const
+{
+  auto it = info_.hardware_parameters.find(key);
+  if (it == info_.hardware_parameters.end()) {return default_value;}
+  return it->second == "true";
 }
 
 }  // namespace bno055_hardware_interface

@@ -9,6 +9,10 @@
 #include <linux/i2c-dev.h>
 #include <i2c/smbus.h>
 
+// Process-global I2C file descriptor. This means two instances of this plugin
+// running in the same process would share the same fd — only one instance per
+// process is supported. (The diagnostics node is safe because it runs as a
+// separate process.)
 static int i2c_fd = -1;
 
 int bno055_i2c_open(const char * i2c_bus, u8 i2c_addr)
