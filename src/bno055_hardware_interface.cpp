@@ -118,7 +118,6 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  // TODO(adityakamath): migrate to the two-argument on_init overload when dropping Kilted support
   if (hardware_interface::SensorInterface::on_init(hardware_info) !=
     hardware_interface::CallbackReturn::SUCCESS)
   {

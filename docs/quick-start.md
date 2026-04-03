@@ -225,80 +225,16 @@ The node subscribes to `/imu_sensor_broadcaster/imu` and publishes a TF transfor
 
 ## Launch Arguments
 
-<style>
-  .args-table {
-    transition: all 0.2s ease;
-  }
-
-  .args-table:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
-  }
-</style>
-
-<table class="args-table" style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 2em auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: none;">
-  <thead>
-    <tr>
-      <th colspan="4" style="text-align: center; padding: 0.6em; background: #f8f9fa; border: none;">🚀 Launch File Arguments</th>
-    </tr>
-    <tr>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Argument</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Default</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Type</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>i2c_bus</code></td>
-      <td style="padding: 0.6em; border: none;"><code>1</code></td>
-      <td style="padding: 0.6em; border: none;">int</td>
-      <td style="padding: 0.6em; border: none;">I2C bus number; plugin opens <code>/dev/i2c-{n}</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>i2c_addr</code></td>
-      <td style="padding: 0.6em; border: none;"><code>28</code></td>
-      <td style="padding: 0.6em; border: none;">string</td>
-      <td style="padding: 0.6em; border: none;">Hex address without <code>0x</code>; <code>28</code> = ADR pin low (0x28), <code>29</code> = ADR pin high (0x29)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>axis_remap</code></td>
-      <td style="padding: 0.6em; border: none;"><code>P1</code></td>
-      <td style="padding: 0.6em; border: none;">string</td>
-      <td style="padding: 0.6em; border: none;">Mounting orientation P0–P7 per BNO055 datasheet §3.4 (see <a href="design.md">design.md</a>)</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>sensor_mode</code></td>
-      <td style="padding: 0.6em; border: none;"><code>NDOF</code></td>
-      <td style="padding: 0.6em; border: none;">string</td>
-      <td style="padding: 0.6em; border: none;">Fusion mode: <code>NDOF</code> (9-DOF absolute, default), <code>NDOF_FMC_OFF</code> (9-DOF, magnetically noisy env), <code>IMUPLUS</code> (6-DOF, no magnetometer)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>enable_mock</code></td>
-      <td style="padding: 0.6em; border: none;"><code>false</code></td>
-      <td style="padding: 0.6em; border: none;">bool</td>
-      <td style="padding: 0.6em; border: none;">Skip I2C; publish identity quaternion and zero velocity/acceleration</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>calib_file</code></td>
-      <td style="padding: 0.6em; border: none;"><code>""</code></td>
-      <td style="padding: 0.6em; border: none;">string</td>
-      <td style="padding: 0.6em; border: none;">Absolute path to YAML calibration file; empty = start uncalibrated</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>publish_tf</code></td>
-      <td style="padding: 0.6em; border: none;"><code>false</code></td>
-      <td style="padding: 0.6em; border: none;">bool</td>
-      <td style="padding: 0.6em; border: none;">Enable the <code>imu_tf_broadcaster</code> relay node to publish <code>world → base_link</code> TF</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>publish_diagnostics</code></td>
-      <td style="padding: 0.6em; border: none;"><code>false</code></td>
-      <td style="padding: 0.6em; border: none;">bool</td>
-      <td style="padding: 0.6em; border: none;">Run the <code>bno055_diagnostics</code> node to publish calibration status and sensor health to <code>/diagnostics</code> at 1 Hz</td>
-    </tr>
-  </tbody>
-</table>
+| Argument | Default | Type | Description |
+|----------|---------|------|-------------|
+| `i2c_bus` | `1` | int | I2C bus number; plugin opens `/dev/i2c-{n}` |
+| `i2c_addr` | `28` | string | Hex address without `0x`; `28` = ADR pin low (0x28), `29` = ADR pin high (0x29) |
+| `axis_remap` | `P1` | string | Mounting orientation P0–P7 per BNO055 datasheet §3.4 (see [design.md](design.md)) |
+| `sensor_mode` | `NDOF` | string | Fusion mode: `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF, magnetically noisy env), `IMUPLUS` (6-DOF, no magnetometer) |
+| `enable_mock` | `false` | bool | Skip I2C; publish identity quaternion and zero velocity/acceleration |
+| `calib_file` | `""` | string | Absolute path to YAML calibration file; empty = start uncalibrated |
+| `publish_tf` | `false` | bool | Enable the `imu_tf_broadcaster` relay node to publish `world → base_link` TF |
+| `publish_diagnostics` | `false` | bool | Run the `bno055_diagnostics` node to publish calibration status and sensor health to `/diagnostics` at 1 Hz |
 
 ---
 

@@ -94,92 +94,18 @@ Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
 
 ## State Interfaces
 
-<style>
-  .si-table {
-    transition: all 0.2s ease;
-  }
-
-  .si-table:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
-  }
-</style>
-
-<table class="si-table" style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 2em auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: none;">
-  <thead>
-    <tr>
-      <th colspan="4" style="text-align: center; padding: 0.6em; background: #f8f9fa; border: none;">State Interfaces (sensor name: <code>bno055</code>)</th>
-    </tr>
-    <tr>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Interface</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Unit</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Raw Scale</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>orientation.x</code></td>
-      <td style="padding: 0.6em; border: none;">–</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 16384</td>
-      <td style="padding: 0.6em; border: none;">Quaternion X component (2¹⁴ LSB/unit, datasheet §3.6.5.5)</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>orientation.y</code></td>
-      <td style="padding: 0.6em; border: none;">–</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 16384</td>
-      <td style="padding: 0.6em; border: none;">Quaternion Y component</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>orientation.z</code></td>
-      <td style="padding: 0.6em; border: none;">–</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 16384</td>
-      <td style="padding: 0.6em; border: none;">Quaternion Z component</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>orientation.w</code></td>
-      <td style="padding: 0.6em; border: none;">–</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 16384</td>
-      <td style="padding: 0.6em; border: none;">Quaternion W component (scalar)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>angular_velocity.x</code></td>
-      <td style="padding: 0.6em; border: none;">rad/s</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 900</td>
-      <td style="padding: 0.6em; border: none;">Gyroscope X — unit set to RPS (radians per second)</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>angular_velocity.y</code></td>
-      <td style="padding: 0.6em; border: none;">rad/s</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 900</td>
-      <td style="padding: 0.6em; border: none;">Gyroscope Y</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>angular_velocity.z</code></td>
-      <td style="padding: 0.6em; border: none;">rad/s</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 900</td>
-      <td style="padding: 0.6em; border: none;">Gyroscope Z</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>linear_acceleration.x</code></td>
-      <td style="padding: 0.6em; border: none;">m/s²</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 100</td>
-      <td style="padding: 0.6em; border: none;">Accelerometer X — unit set to m/s² (MSQ)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>linear_acceleration.y</code></td>
-      <td style="padding: 0.6em; border: none;">m/s²</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 100</td>
-      <td style="padding: 0.6em; border: none;">Accelerometer Y</td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>linear_acceleration.z</code></td>
-      <td style="padding: 0.6em; border: none;">m/s²</td>
-      <td style="padding: 0.6em; border: none;">raw ÷ 100</td>
-      <td style="padding: 0.6em; border: none;">Accelerometer Z</td>
-    </tr>
-  </tbody>
-</table>
+| Interface | Unit | Raw Scale | Description |
+|-----------|------|-----------|-------------|
+| `orientation.x` | – | raw ÷ 16384 | Quaternion X component (2¹⁴ LSB/unit, datasheet §3.6.5.5) |
+| `orientation.y` | – | raw ÷ 16384 | Quaternion Y component |
+| `orientation.z` | – | raw ÷ 16384 | Quaternion Z component |
+| `orientation.w` | – | raw ÷ 16384 | Quaternion W component (scalar) |
+| `angular_velocity.x` | rad/s | raw ÷ 900 | Gyroscope X — unit set to RPS (radians per second) |
+| `angular_velocity.y` | rad/s | raw ÷ 900 | Gyroscope Y |
+| `angular_velocity.z` | rad/s | raw ÷ 900 | Gyroscope Z |
+| `linear_acceleration.x` | m/s² | raw ÷ 100 | Accelerometer X — unit set to m/s² (MSQ) |
+| `linear_acceleration.y` | m/s² | raw ÷ 100 | Accelerometer Y |
+| `linear_acceleration.z` | m/s² | raw ÷ 100 | Accelerometer Z |
 
 **Note:** The `imu_sensor_broadcaster` (configured in `config/imu_broadcaster.yaml`) reads these interfaces and publishes a `sensor_msgs/Imu` message on `/imu_sensor_broadcaster/imu` at 100 Hz with `frame_id: imu_frame`.
 
@@ -189,71 +115,16 @@ Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
 
 The BNO055 supports 8 standard mounting orientations. The correct P-code for a given PCB orientation is read from BNO055 datasheet §3.4 and set via the `axis_remap` parameter at launch time. Register values are written directly in CONFIG mode before switching to the configured fusion mode:
 
-<style>
-  .remap-table {
-    transition: all 0.2s ease;
-  }
-
-  .remap-table:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
-  }
-</style>
-
-<table class="remap-table" style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 2em auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: none;">
-  <thead>
-    <tr>
-      <th colspan="3" style="text-align: center; padding: 0.6em; background: #f8f9fa; border: none;">Axis Remap Register Values</th>
-    </tr>
-    <tr>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">P-Code</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">AXIS_MAP_CONFIG (0x41)</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">AXIS_MAP_SIGN (0x42)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><strong>P0</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x21</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x04</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><strong>P1</strong> (default)</td>
-      <td style="padding: 0.6em; border: none;"><code>0x24</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x00</code></td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><strong>P2</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x24</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x06</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><strong>P3</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x21</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x02</code></td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><strong>P4</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x24</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x03</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><strong>P5</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x21</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x01</code></td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><strong>P6</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x21</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x07</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><strong>P7</strong></td>
-      <td style="padding: 0.6em; border: none;"><code>0x24</code></td>
-      <td style="padding: 0.6em; border: none;"><code>0x05</code></td>
-    </tr>
-  </tbody>
-</table>
+| P-Code | AXIS_MAP_CONFIG (0x41) | AXIS_MAP_SIGN (0x42) |
+|--------|----------------------|---------------------|
+| **P0** | `0x21` | `0x04` |
+| **P1** (default) | `0x24` | `0x00` |
+| **P2** | `0x24` | `0x06` |
+| **P3** | `0x21` | `0x02` |
+| **P4** | `0x24` | `0x03` |
+| **P5** | `0x21` | `0x01` |
+| **P6** | `0x21` | `0x07` |
+| **P7** | `0x24` | `0x05` |
 
 Values match the `flynneva/bno055` P-code table and Bosch datasheet Table 3-4. The lookup table is defined as a `static const std::map<std::string, std::pair<uint8_t, uint8_t>>` in the plugin source (`kAxisRemap`).
 
@@ -261,66 +132,14 @@ Values match the `flynneva/bno055` P-code table and Bosch datasheet Table 3-4. T
 
 ## Hardware Parameters
 
-<style>
-  .params-table {
-    transition: all 0.2s ease;
-  }
-
-  .params-table:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
-  }
-</style>
-
-<table class="params-table" style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 2em auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: none;">
-  <thead>
-    <tr>
-      <th colspan="4" style="text-align: center; padding: 0.6em; background: #f8f9fa; border: none;">Hardware Plugin Parameters</th>
-    </tr>
-    <tr>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Parameter</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Type</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Default</th>
-      <th style="text-align: left; padding: 0.6em; background: #e9ecef; border: none;">Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>i2c_bus</code></td>
-      <td style="padding: 0.6em; border: none;"><code>int</code></td>
-      <td style="padding: 0.6em; border: none;"><code>1</code></td>
-      <td style="padding: 0.6em; border: none;">I2C bus number; the plugin opens <code>/dev/i2c-{n}</code></td>
-    </tr>
-    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>i2c_addr</code></td>
-      <td style="padding: 0.6em; border: none;"><code>string</code></td>
-      <td style="padding: 0.6em; border: none;"><code>"28"</code></td>
-      <td style="padding: 0.6em; border: none;">I2C address as hex without <code>0x</code> prefix. <code>28</code> = 0x28 (ADR pin low, default); <code>29</code> = 0x29 (ADR pin high)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>axis_remap</code></td>
-      <td style="padding: 0.6em; border: none;"><code>string</code></td>
-      <td style="padding: 0.6em; border: none;"><code>"P1"</code></td>
-      <td style="padding: 0.6em; border: none;">Mounting orientation P0–P7 for axis remapping (see table above). Invalid values cause <code>on_init</code> to return <code>ERROR</code></td>
-    </tr>    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>sensor_mode</code></td>
-      <td style="padding: 0.6em; border: none;"><code>string</code></td>
-      <td style="padding: 0.6em; border: none;"><code>"NDOF"</code></td>
-      <td style="padding: 0.6em; border: none;">Fusion mode: <code>NDOF</code> (9-DOF absolute), <code>NDOF_FMC_OFF</code> (9-DOF, no fast mag calibration), <code>IMUPLUS</code> (6-DOF, no magnetometer). Invalid values cause <code>on_init</code> to return <code>ERROR</code></td>
-    </tr>    <tr style="background: #f0f0f0;">
-      <td style="padding: 0.6em; border: none;"><code>enable_mock</code></td>
-      <td style="padding: 0.6em; border: none;"><code>bool</code></td>
-      <td style="padding: 0.6em; border: none;"><code>false</code></td>
-      <td style="padding: 0.6em; border: none;">When <code>true</code>, skip all I2C operations and publish zero angular velocity, zero linear acceleration, and identity quaternion (w=1)</td>
-    </tr>
-    <tr style="background: #ffffff;">
-      <td style="padding: 0.6em; border: none;"><code>calib_file</code></td>
-      <td style="padding: 0.6em; border: none;"><code>string</code></td>
-      <td style="padding: 0.6em; border: none;"><code>""</code></td>
-      <td style="padding: 0.6em; border: none;">Absolute path to calibration YAML. Empty string = start uncalibrated</td>
-    </tr>
-  </tbody>
-</table>
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `i2c_bus` | `int` | `1` | I2C bus number; the plugin opens `/dev/i2c-{n}` |
+| `i2c_addr` | `string` | `"28"` | I2C address as hex without `0x` prefix. `28` = 0x28 (ADR pin low, default); `29` = 0x29 (ADR pin high) |
+| `axis_remap` | `string` | `"P1"` | Mounting orientation P0–P7 for axis remapping (see table above). Invalid values cause `on_init` to return `ERROR` |
+| `sensor_mode` | `string` | `"NDOF"` | Fusion mode: `NDOF` (9-DOF absolute), `NDOF_FMC_OFF` (9-DOF, no fast mag calibration), `IMUPLUS` (6-DOF, no magnetometer). Invalid values cause `on_init` to return `ERROR` |
+| `enable_mock` | `bool` | `false` | When `true`, skip all I2C operations and publish zero angular velocity, zero linear acceleration, and identity quaternion (w=1) |
+| `calib_file` | `string` | `""` | Absolute path to calibration YAML. Empty string = start uncalibrated |
 
 ---
 
