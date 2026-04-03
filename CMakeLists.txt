@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.28)
 project(bno055_hardware_interface VERSION 0.1.0)
 
 if(NOT CMAKE_CXX_STANDARD)
