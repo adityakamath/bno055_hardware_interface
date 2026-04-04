@@ -7,7 +7,7 @@ System design and implementation guide for the BNO055 IMU hardware interface.
 
 ## Overview
 
-The BNO055 Hardware Interface is a `ros2_control` `SensorInterface` plugin that connects ROS 2 to the Bosch BNO055 9-DOF IMU via Linux I2C (`i2c-dev`). It uses the official [Bosch BNO055 SensorAPI](https://github.com/BoschSensortec/BNO055_SensorAPI) C library (included as a git submodule) and runs the sensor in a configurable **sensor fusion mode** — `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF for magnetically noisy environments), or `IMUPLUS` (6-DOF without magnetometer) — providing drift-free orientation along with calibrated gyroscope and accelerometer readings.
+The BNO055 Hardware Interface is a `ros2_control` `SensorInterface` plugin that connects ROS 2 to the Bosch BNO055 9-DOF IMU via Linux I2C (`i2c-dev`). It uses the official [Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver) C library (included as a git submodule) and runs the sensor in a configurable **sensor fusion mode** — `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF for magnetically noisy environments), or `IMUPLUS` (6-DOF without magnetometer) — providing drift-free orientation along with calibrated gyroscope and accelerometer readings.
 
 **Key design goals:**
 
@@ -83,7 +83,7 @@ When the lifecycle node is cleaned up: `bno055_set_power_mode(BNO055_POWER_MODE_
 
 Identical to `on_cleanup` — suspends the sensor, closes the I2C file descriptor, and resets all state doubles. Ensures clean teardown regardless of which lifecycle transition triggers the exit.
 
-### on_read
+### read()
 
 Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
 
@@ -231,7 +231,7 @@ When `enable_mock: true`, the plugin skips all I2C operations:
   - `linear_acceleration.{x,y,z}` = 0.0
 - `on_cleanup`: no suspend/close calls
 
-Mock mode is useful for integration testing, CI, and development on machines without a BNO055 attached. All 9 GTest unit tests and 10 launch tests pass in mock mode.
+Mock mode is useful for integration testing, CI, and development on machines without a BNO055 attached. All 13 GTest unit tests and 10 launch tests pass in mock mode.
 
 ---
 
@@ -363,7 +363,7 @@ test/
 
 ### Unit Tests: `test_hardware_interface.cpp`
 
-**9 tests** covering parameter validation, state interface export, lifecycle transitions, and mock-mode read behaviour.
+**13 tests** covering parameter validation, state interface export, lifecycle transitions, and mock-mode read behaviour.
 
 **Parameter validation (`on_init`):**
 
@@ -386,6 +386,9 @@ test/
 |---|---|
 | `MockHwTest.FullLifecycle` | `on_configure → on_activate → on_deactivate → on_cleanup` all return `SUCCESS` |
 | `MockHwTest.ReconfigureAfterCleanup` | Configure → cleanup → re-init → re-configure succeeds (fresh instance) |
+| `MockHwTest.SameObjectReconfigureCycle` | Same plugin instance can be configured, cleaned up, and re-configured without reinstantiation (ros2_control lifecycle reuse) |
+| `MockHwTest.ShutdownFromInactive` | `on_shutdown` from inactive state returns `SUCCESS` |
+| `MockHwTest.ShutdownFromActive` | `on_shutdown` from active state returns `SUCCESS` |
 
 **Read behaviour (mock mode):**
 
@@ -393,6 +396,7 @@ test/
 |---|---|
 | `MockHwTest.ReadOutputsValid` | After `read()`: identity quaternion (w=1, x/y/z=0), all values finite and non-NaN, quaternion norm ≈ 1.0 |
 | `MockHwTest.MultipleReadsRemainStable` | 20 consecutive `read()` calls all return `OK` |
+| `MockHwTest.StateResetAfterCleanup` | After `on_cleanup`, all state doubles reset to initial values (identity quaternion, zeros elsewhere) |
 
 **Key design:** All tests use mock mode. No I2C bus or physical sensor is required. Tests compile and run with `ament_add_gtest`.
 
@@ -456,6 +460,6 @@ colcon test --packages-select bno055_hardware_interface \
 - [bno055_hardware_interface README](https://github.com/adityakamath/bno055_hardware_interface/blob/main/README.md)
 - [Quick Start guide](quick-start.md)
 - [ros2_control documentation](https://control.ros.org/)
-- [Bosch BNO055 SensorAPI](https://github.com/BoschSensortec/BNO055_SensorAPI)
+- [Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver)
 - [Bosch BNO055 datasheet](https://www.bosch-sensortec.com/products/smart-sensor-systems/bno055/)
 

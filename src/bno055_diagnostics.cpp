@@ -16,7 +16,9 @@
  *                                         IMUPLUS suppresses the MAG calibration entry
  */
 
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "bno055_hardware_interface/bno055_i2c.h"  // pulls in bno055.h inside extern "C"
@@ -29,7 +31,6 @@
 using diagnostic_msgs::msg::DiagnosticArray;
 using diagnostic_msgs::msg::DiagnosticStatus;
 using diagnostic_msgs::msg::KeyValue;
-using namespace std::chrono_literals;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -66,10 +67,7 @@ static std::string sys_error_string(uint8_t code)
 
 static KeyValue kv(const std::string & key, const std::string & value)
 {
-  KeyValue pair;
-  pair.key = key;
-  pair.value = value;
-  return pair;
+  return KeyValue{}.set__key(key).set__value(value);
 }
 
 // ── node ──────────────────────────────────────────────────────────────────────
@@ -102,9 +100,11 @@ public:
     if (enable_mock_) {
       hardware_id_ = "mock";
     } else {
-      char buf[3];
-      snprintf(buf, sizeof(buf), "%02X", i2c_addr_);
-      hardware_id_ = "/dev/i2c-" + std::to_string(i2c_bus_) + " @ 0x" + std::string(buf);
+      std::ostringstream oss;
+      oss << "/dev/i2c-" << i2c_bus_ << " @ 0x"
+          << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+          << static_cast<int>(i2c_addr_);
+      hardware_id_ = oss.str();
     }
 
     if (enable_mock_) {
@@ -136,6 +136,7 @@ public:
     }
 
     pub_ = create_publisher<DiagnosticArray>("/diagnostics", rclcpp::SystemDefaultsQoS());
+    using namespace std::chrono_literals;
     timer_ = create_wall_timer(1s, [this]() { publish(); });
   }
 

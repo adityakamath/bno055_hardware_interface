@@ -12,7 +12,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <string>
@@ -41,9 +40,8 @@ bool parse_calib_yaml(
     const auto colon = line.find(':');
     if (colon == std::string::npos) {continue;}
     std::string key = line.substr(0, colon);
-    while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) {
-      key.pop_back();
-    }
+    const auto key_end = key.find_last_not_of(" \t\r");
+    key = (key_end == std::string::npos) ? "" : key.substr(0, key_end + 1);
     try {
       vals[key] = static_cast<int16_t>(std::stoi(line.substr(colon + 1)));
     } catch (const std::exception & e) {
@@ -128,9 +126,11 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   RCLCPP_INFO(logger_, "Initializing BNO055 hardware interface: %s", info_.name.c_str());
 
   // i2c_bus (default: 1)
-  if (info_.hardware_parameters.count("i2c_bus")) {
+  if (const auto it = info_.hardware_parameters.find("i2c_bus");
+    it != info_.hardware_parameters.end())
+  {
     try {
-      i2c_bus_ = std::stoi(info_.hardware_parameters.at("i2c_bus"));
+      i2c_bus_ = std::stoi(it->second);
     } catch (const std::exception & e) {
       RCLCPP_ERROR(logger_, "Invalid i2c_bus: %s", e.what());
       return hardware_interface::CallbackReturn::ERROR;
@@ -138,10 +138,11 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   }
 
   // i2c_addr (default: 0x28)
-  if (info_.hardware_parameters.count("i2c_addr")) {
+  if (const auto it = info_.hardware_parameters.find("i2c_addr");
+    it != info_.hardware_parameters.end())
+  {
     try {
-      i2c_addr_ = static_cast<uint8_t>(
-        std::stoul(info_.hardware_parameters.at("i2c_addr"), nullptr, 16));
+      i2c_addr_ = static_cast<uint8_t>(std::stoul(it->second, nullptr, 16));
     } catch (const std::exception & e) {
       RCLCPP_ERROR(logger_, "Invalid i2c_addr: %s", e.what());
       return hardware_interface::CallbackReturn::ERROR;
@@ -149,8 +150,10 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   }
 
   // axis_remap (default: "P1")
-  if (info_.hardware_parameters.count("axis_remap")) {
-    axis_remap_ = info_.hardware_parameters.at("axis_remap");
+  if (const auto it = info_.hardware_parameters.find("axis_remap");
+    it != info_.hardware_parameters.end())
+  {
+    axis_remap_ = it->second;
   }
   if (kAxisRemap.find(axis_remap_) == kAxisRemap.end()) {
     RCLCPP_ERROR(logger_, "Invalid axis_remap '%s'. Must be P0-P7.", axis_remap_.c_str());
@@ -161,13 +164,17 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   enable_mock_ = parse_bool_param("enable_mock", false);
 
   // calib_file (default: empty — no file, rely on in-sensor calibration)
-  if (info_.hardware_parameters.count("calib_file")) {
-    calib_file_ = info_.hardware_parameters.at("calib_file");
+  if (const auto it = info_.hardware_parameters.find("calib_file");
+    it != info_.hardware_parameters.end())
+  {
+    calib_file_ = it->second;
   }
 
   // sensor_mode (default: "NDOF")
-  if (info_.hardware_parameters.count("sensor_mode")) {
-    sensor_mode_ = info_.hardware_parameters.at("sensor_mode");
+  if (const auto it = info_.hardware_parameters.find("sensor_mode");
+    it != info_.hardware_parameters.end())
+  {
+    sensor_mode_ = it->second;
   }
   if (kOperationMode.find(sensor_mode_) == kOperationMode.end()) {
     RCLCPP_ERROR(
@@ -429,11 +436,11 @@ hardware_interface::return_type BNO055HardwareInterface::read(
   }
 
   // Orientation — raw quaternion (s16 values, scale = 1/2^14)
-  struct bno055_quaternion_t quat;
+  bno055_quaternion_t quat;
   // Angular velocity — convert to rad/s directly (gyro unit set to RPS)
-  struct bno055_gyro_double_t gyro;
+  bno055_gyro_double_t gyro;
   // Linear acceleration (gravity-compensated, m/s^2)
-  struct bno055_linear_accel_double_t lin_accel;
+  bno055_linear_accel_double_t lin_accel;
 
   bool ok =
     (bno055_read_quaternion_wxyz(&quat) == BNO055_SUCCESS) &&

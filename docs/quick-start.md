@@ -283,7 +283,6 @@ Expected topics when running:
 /diagnostics
 /imu_sensor_broadcaster/imu
 /robot_description
-/joint_states
 /tf
 /tf_static
 ```
@@ -413,7 +412,7 @@ colcon test-result --verbose
 
 | Test File | Type | Tests | What Is Covered |
 |-----------|------|-------|-----------------|
-| `test_hardware_interface.cpp` | C++ unit | 9 | Parameter parsing (incl. sensor_mode), state interface export, mock-mode lifecycle, read behaviour |
+| `test_hardware_interface.cpp` | C++ unit | 13 | Parameter parsing (incl. sensor_mode), state interface export, mock-mode lifecycle, read behaviour, shutdown transitions |
 | `test_bno055.launch.py` | Launch integration | 10 | Full bringup with `enable_mock:=true`, node presence, topic availability, diagnostics |
 | Linters | Style | 4+ | `flake8`, `pep257` (C++ linters disabled to avoid recursing into the Bosch vendor tree) |
 
@@ -466,5 +465,5 @@ All tests must pass. If any fail, run `colcon test-result --verbose` and check t
 - [bno055_hardware_interface README](https://github.com/adityakamath/bno055_hardware_interface/blob/main/README.md)
 - [Design documentation](design.md)
 - [ros2_control documentation](https://control.ros.org/)
-- [Bosch BNO055 SensorAPI](https://github.com/BoschSensortec/BNO055_SensorAPI)
+- [Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver)
 - [Bosch BNO055 datasheet](https://www.bosch-sensortec.com/products/smart-sensor-systems/bno055/)

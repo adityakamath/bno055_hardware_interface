@@ -4,7 +4,7 @@
 ![ROS 2](https://img.shields.io/badge/ROS%202-Kilted%20(Ubuntu%2024.04)-blue?style=flat&logo=ros&logoSize=auto)
 ![ROS 2 Control](https://img.shields.io/badge/ros2__control-SensorInterface-blue?style=flat&logo=ros&logoSize=auto)
 ![Repository](https://img.shields.io/badge/Repo-adityakamath%2Fbno055__hardware__interface-purple?style=flat&logo=github&logoSize=auto)
-![Dependency](https://img.shields.io/badge/Dep-BoschSensortec%2FBNO055__SensorAPI-purple?style=flat&logo=github&logoSize=auto)
+![Dependency](https://img.shields.io/badge/Dep-BoschSensortec%2FBNO055__driver-purple?style=flat&logo=github&logoSize=auto)
 [![Ask DeepWiki (Experimental)](https://deepwiki.com/badge.svg)](https://deepwiki.com/adityakamath/bno055_hardware_interface)
 ![C++](https://img.shields.io/badge/C++-17-blue?style=flat&logo=cplusplus&logoColor=white)
 ![License](https://img.shields.io/github/license/adityakamath/bno055_hardware_interface?label=License)
@@ -17,7 +17,7 @@
 
 - **Configurable Sensor Fusion**: Three on-chip fusion modes — `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF without fast magnetometer calibration, for magnetically noisy environments), and `IMUPLUS` (6-DOF gyro + accel only, no magnetometer) — selected at launch via `sensor_mode`
 - **10 State Interfaces**: Orientation quaternion (x, y, z, w), angular velocity (rad/s), and linear acceleration (m/s²) — fully compatible with `imu_sensor_broadcaster`
-- **Bosch SensorAPI Integration**: Uses the official [Bosch BNO055 SensorAPI](https://github.com/BoschSensortec/BNO055_SensorAPI) C library (git submodule); no third-party wrappers
+- **Bosch SensorAPI Integration**: Uses the official [Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver) C library (git submodule); no third-party wrappers
 - **Axis Remapping**: 8 standard mounting orientations (P0–P7) configurable at launch, matching BNO055 datasheet §3.4
 - **Calibration Persistence**: Save sensor calibration offsets to a YAML file and load them automatically at boot via the `calib_file` hardware parameter; offsets are written in CONFIG mode before entering NDOF
 - **Mock Mode**: Run the complete `ros2_control` lifecycle and publish zero/identity values without any hardware — set `enable_mock:=true`
@@ -38,7 +38,7 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
 ## Configuration Example
 
 ```xml
-<ros2_control name="bno055" type="sensor">
+<ros2_control name="bno055_sensor" type="sensor">
   <hardware>
     <plugin>bno055_hardware_interface/BNO055HardwareInterface</plugin>
     <param name="i2c_bus">1</param>
