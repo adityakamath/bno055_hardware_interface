@@ -237,7 +237,7 @@ Mock mode is useful for integration testing, CI, and development on machines wit
 
 ## TF Broadcasting
 
-An optional TF relay node (`src/imu_tf_broadcaster.cpp`) subscribes to the IMU topic and republishes the orientation quaternion as a dynamic TF transform. Enabled via the `publish_tf:=true` launch argument.
+An optional TF relay node (`src/imu_tf_broadcaster.cpp`) subscribes to the IMU topic and republishes the orientation quaternion as a dynamic TF transform for 3D visualisation (e.g. RViz). It is not needed for normal sensor operation — the IMU data is fully available on `/imu_sensor_broadcaster/imu` regardless. Enabled by default for convenience; disable with `publish_tf:=false`.
 
 **Node parameters:**
 
@@ -306,7 +306,7 @@ The broadcaster reads all 10 state interfaces from the sensor named `bno055` and
 
 ## Diagnostics Node
 
-An optional companion node (`src/bno055_diagnostics.cpp`) publishes BNO055 sensor health to `/diagnostics` at 1 Hz as a `diagnostic_msgs/DiagnosticArray`. Enabled via the `publish_diagnostics:=true` launch argument.
+An optional companion node (`src/bno055_diagnostics.cpp`) publishes BNO055 sensor health to `/diagnostics` at 1 Hz as a `diagnostic_msgs/DiagnosticArray`. It is purely a monitoring aid — sensor data and (optional) TF are unaffected if it is not running. Enabled by default for convenience; disable with `publish_diagnostics:=false`.
 
 The node opens its own I2C file descriptor independently of the hardware interface plugin. The Linux `i2c-dev` kernel driver serialises concurrent SMBus calls at the adapter level, so both can safely share the bus. The 1 Hz poll causes at most ~200 µs of bus contention per 10 ms control cycle — negligible.
 
@@ -334,7 +334,7 @@ The node opens its own I2C file descriptor independently of the hardware interfa
 
 | Level | Condition |
 |-------|-----------|
-| `OK` | sys_status = 5 (Sensor Fusion Running) and all used calibration levels ≥ 1 |
+| `OK` | All used calibration levels ≥ 1 (sys_status is used as the status message, not as a condition) |
 | `WARN` | Any used calibration level < 1 — sensor is still calibrating |
 | `ERROR` | sys_status = 1 (System Error) or any I2C read failure |
 

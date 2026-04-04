@@ -12,7 +12,8 @@ Example usage:
     ros2 launch bno055_hardware_interface bno055.launch.py i2c_bus:=1 i2c_addr:=28
     ros2 launch bno055_hardware_interface bno055.launch.py axis_remap:=P2
     ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
-    ros2 launch bno055_hardware_interface bno055.launch.py publish_tf:=true
+    ros2 launch bno055_hardware_interface bno055.launch.py publish_tf:=false
+    ros2 launch bno055_hardware_interface bno055.launch.py publish_diagnostics:=false
 """
 
 from launch import LaunchDescription
@@ -66,14 +67,14 @@ def generate_launch_description():
         # ),
         DeclareLaunchArgument(
             'publish_tf',
-            default_value='false',
+            default_value='true',
             description=(
                 'Publish a dynamic world→base_link TF from IMU orientation for RViz visualization'
             ),
         ),
         DeclareLaunchArgument(
             'publish_diagnostics',
-            default_value='false',
+            default_value='true',
             description=(
                 'Run the bno055_diagnostics companion node to publish sensor health '
                 'and calibration status to /diagnostics at 1 Hz'

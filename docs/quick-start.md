@@ -233,8 +233,8 @@ The node subscribes to `/imu_sensor_broadcaster/imu` and publishes a TF transfor
 | `sensor_mode` | `NDOF` | string | Fusion mode: `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF, magnetically noisy env), `IMUPLUS` (6-DOF, no magnetometer) |
 | `enable_mock` | `false` | bool | Skip I2C; publish identity quaternion and zero velocity/acceleration |
 | `calib_file` | `""` | string | Absolute path to YAML calibration file; empty = start uncalibrated |
-| `publish_tf` | `false` | bool | Enable the `imu_tf_broadcaster` relay node to publish `world → base_link` TF |
-| `publish_diagnostics` | `false` | bool | Run the `bno055_diagnostics` node to publish calibration status and sensor health to `/diagnostics` at 1 Hz |
+| `publish_tf` | `true` | bool | Enable the optional `imu_tf_broadcaster` relay node — publishes `world → base_link` TF for RViz visualisation; not needed for normal sensor operation |
+| `publish_diagnostics` | `true` | bool | Enable the optional `bno055_diagnostics` node — publishes calibration status and sensor health to `/diagnostics` at 1 Hz; not needed for normal sensor operation |
 
 ---
 
@@ -280,6 +280,7 @@ ros2 topic list
 Expected topics when running:
 
 ```
+/diagnostics
 /imu_sensor_broadcaster/imu
 /robot_description
 /joint_states
@@ -287,13 +288,13 @@ Expected topics when running:
 /tf_static
 ```
 
-### 5. View TF Frames (when publish_tf:=true)
+### 5. View TF Frames
 
 ```bash
 ros2 run tf2_tools view_frames
 ```
 
-### 6. Monitor Diagnostics (when publish_diagnostics:=true)
+### 6. Monitor Diagnostics
 
 ```bash
 # Echo raw DiagnosticArray messages
