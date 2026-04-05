@@ -15,7 +15,10 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>libi2c-dev</depend>
+  <!-- libi2c-dev is a Debian/Ubuntu APT package, not a standard rosdep key.
+       Install manually: sudo apt install libi2c-dev
+       Or via rosdep with a custom sources list entry. -->
+  <build_depend>libi2c-dev</build_depend>
 
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
@@ -30,6 +33,7 @@
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>imu_sensor_broadcaster</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -141,7 +141,6 @@ if(BUILD_TESTING)
     ${PROJECT_NAME}
     ${rclcpp_TARGETS}
     hardware_interface::hardware_interface
-    i2c
   )
   target_include_directories(test_hardware_interface PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

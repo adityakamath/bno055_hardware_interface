@@ -57,14 +57,14 @@ def generate_launch_description():
                 'IMUPLUS (relative, 6-DOF, no magnetometer)'
             )
         ),
-        # To load saved calibration offsets instead of relying on auto-calibration,
-        # uncomment the argument below and the corresponding lines in the xacro command.
-        # The config/bno055_calib.yaml file in this package shows the expected format.
-        # DeclareLaunchArgument(
-        #     'calib_file',
-        #     default_value='',
-        #     description='Path to calibration YAML file (see config/bno055_calib.yaml)'
-        # ),
+        DeclareLaunchArgument(
+            'calib_file',
+            default_value='',
+            description=(
+                'Absolute path to calibration YAML file (see config/bno055_calib.yaml). '
+                'Empty = start uncalibrated and rely on in-sensor auto-calibration.'
+            )
+        ),
         DeclareLaunchArgument(
             'publish_tf',
             default_value='true',
@@ -87,7 +87,7 @@ def generate_launch_description():
     axis_remap = LaunchConfiguration('axis_remap')
     enable_mock = LaunchConfiguration('enable_mock')
     sensor_mode = LaunchConfiguration('sensor_mode')
-    # calib_file = LaunchConfiguration('calib_file')
+    calib_file = LaunchConfiguration('calib_file')
     publish_tf = LaunchConfiguration('publish_tf')
     publish_diagnostics = LaunchConfiguration('publish_diagnostics')
 
@@ -109,8 +109,8 @@ def generate_launch_description():
             'enable_mock:=', enable_mock,
             ' ',
             'sensor_mode:=', sensor_mode,
-            # Uncomment to pass a calibration offsets file to the plugin:
-            # ' ', 'calib_file:=', calib_file,
+            ' ',
+            'calib_file:=', calib_file,
         ]
     )
     robot_description = {

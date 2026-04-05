@@ -17,6 +17,13 @@ static int i2c_fd = -1;
 
 int bno055_i2c_open(const char * i2c_bus, u8 i2c_addr)
 {
+  // Close any previously open fd to prevent a descriptor leak if on_configure
+  // is called again without a preceding on_cleanup (valid in ros2_control
+  // error-recovery lifecycle paths).
+  if (i2c_fd >= 0) {
+    close(i2c_fd);
+    i2c_fd = -1;
+  }
   i2c_fd = open(i2c_bus, O_RDWR);
   if (i2c_fd < 0) {
     fprintf(stderr, "bno055_i2c: failed to open %s\n", i2c_bus);
