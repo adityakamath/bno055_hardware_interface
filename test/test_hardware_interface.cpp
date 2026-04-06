@@ -309,6 +309,27 @@ TEST_F(MockHwTest, ShutdownFromActive)
   EXPECT_EQ(hw_->on_shutdown(active_state()),        CallbackReturn::SUCCESS);
 }
 
+TEST_F(MockHwTest, OnErrorCleansUpAndAllowsRecovery)
+{
+  // on_error() must close hardware and return SUCCESS (→ UNCONFIGURED) so that
+  // the controller manager can reconfigure without a process restart.
+  // The base-class default returns ERROR (→ FINALIZED), leaking the I2C fd.
+  ifaces_ = hw_->export_state_interfaces();
+  ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+  ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
+
+  EXPECT_EQ(hw_->on_error(active_state()), CallbackReturn::SUCCESS);
+
+  // State must be reset to initial values (close_hardware called by on_error)
+  EXPECT_DOUBLE_EQ(get("orientation.w"), 1.0);
+  EXPECT_DOUBLE_EQ(get("orientation.x"), 0.0);
+  EXPECT_DOUBLE_EQ(get("angular_velocity.x"),    0.0);
+  EXPECT_DOUBLE_EQ(get("linear_acceleration.x"), 0.0);
+
+  // Recovery: on_configure must succeed after on_error
+  EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 
 int main(int argc, char ** argv)

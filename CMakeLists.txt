@@ -99,7 +99,7 @@ install(TARGETS bno055_diagnostics
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS ${PROJECT_NAME} bno055_driver bno055_i2c
+install(TARGETS ${PROJECT_NAME}
   DESTINATION lib
 )
 
@@ -116,11 +116,10 @@ install(DIRECTORY config launch
 )
 
 if(BUILD_TESTING)
-  # Disable linters that would recurse into the external/ Bosch vendor directory
-  # and the Bosch driver's non-standard style conventions.
-  set(ament_cmake_copyright_FOUND TRUE)
+  # Suppress only the C/C++ style linters that recurse into the external/ Bosch
+  # vendor tree and trip on its non-standard formatting conventions.
+  # copyright and lint_cmake do not inspect external C sources, so they run normally.
   set(ament_cmake_cpplint_FOUND TRUE)
-  set(ament_cmake_lint_cmake_FOUND TRUE)
   set(ament_cmake_uncrustify_FOUND TRUE)
 
   find_package(ament_lint_auto REQUIRED)
@@ -141,7 +140,6 @@ if(BUILD_TESTING)
     ${PROJECT_NAME}
     ${rclcpp_TARGETS}
     hardware_interface::hardware_interface
-    i2c
   )
   target_include_directories(test_hardware_interface PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -384,6 +384,14 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+hardware_interface::CallbackReturn BNO055HardwareInterface::on_error(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  RCLCPP_ERROR(logger_, "BNO055 hardware interface entering error recovery — closing hardware");
+  close_hardware();
+  return hardware_interface::CallbackReturn::SUCCESS;
+}
+
 void BNO055HardwareInterface::close_hardware()
 {
   if (!enable_mock_) {
@@ -437,15 +445,18 @@ hardware_interface::return_type BNO055HardwareInterface::read(
 
   // Orientation — raw quaternion (s16 values, scale = 1/2^14)
   bno055_quaternion_t quat;
-  // Angular velocity — convert to rad/s directly (gyro unit set to RPS)
-  bno055_gyro_double_t gyro;
-  // Linear acceleration (gravity-compensated, m/s^2)
-  bno055_linear_accel_double_t lin_accel;
+  // Angular velocity — raw s16 counts; unit was set to RPS in on_configure
+  bno055_gyro_t gyro;
+  // Linear acceleration — raw s16 counts; unit was set to m/s² in on_configure
+  bno055_linear_accel_t lin_accel;
 
+  // Use raw read functions + manual scaling to avoid the convert_double variants,
+  // which re-read the unit register on every call and may trigger a CONFIG mode
+  // switch if the register is ever corrupted (stalling fusion for 19+ ms).
   bool ok =
     (bno055_read_quaternion_wxyz(&quat) == BNO055_SUCCESS) &&
-    (bno055_convert_double_gyro_xyz_rps(&gyro) == BNO055_SUCCESS) &&
-    (bno055_convert_double_linear_accel_xyz_msq(&lin_accel) == BNO055_SUCCESS);
+    (bno055_read_gyro_xyz(&gyro) == BNO055_SUCCESS) &&
+    (bno055_read_linear_accel_xyz(&lin_accel) == BNO055_SUCCESS);
 
   if (!ok) {
     ++consecutive_read_errors_;
@@ -474,13 +485,13 @@ hardware_interface::return_type BNO055HardwareInterface::read(
     hw_orientation_z_ = qz / norm;
   }
 
-  hw_angular_velocity_x_ = gyro.x;
-  hw_angular_velocity_y_ = gyro.y;
-  hw_angular_velocity_z_ = gyro.z;
+  hw_angular_velocity_x_ = gyro.x / BNO055_GYRO_DIV_RPS;
+  hw_angular_velocity_y_ = gyro.y / BNO055_GYRO_DIV_RPS;
+  hw_angular_velocity_z_ = gyro.z / BNO055_GYRO_DIV_RPS;
 
-  hw_linear_acceleration_x_ = lin_accel.x;
-  hw_linear_acceleration_y_ = lin_accel.y;
-  hw_linear_acceleration_z_ = lin_accel.z;
+  hw_linear_acceleration_x_ = lin_accel.x / BNO055_LINEAR_ACCEL_DIV_MSQ;
+  hw_linear_acceleration_y_ = lin_accel.y / BNO055_LINEAR_ACCEL_DIV_MSQ;
+  hw_linear_acceleration_z_ = lin_accel.z / BNO055_LINEAR_ACCEL_DIV_MSQ;
 
   return hardware_interface::return_type::OK;
 }

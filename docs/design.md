@@ -83,6 +83,10 @@ When the lifecycle node is cleaned up: `bno055_set_power_mode(BNO055_POWER_MODE_
 
 Identical to `on_cleanup` — suspends the sensor, closes the I2C file descriptor, and resets all state doubles. Ensures clean teardown regardless of which lifecycle transition triggers the exit.
 
+### on_error
+
+Called by ros2_control when `read()` returns `ERROR` (after 10 consecutive failures). The base-class default returns `ERROR` → FINALIZED, bypassing `on_cleanup` and leaving the I2C fd open. The override calls `close_hardware()` (suspends sensor, closes fd, resets state doubles) and returns `SUCCESS` → UNCONFIGURED, allowing the controller manager to reconfigure and recover without a process restart.
+
 ### read()
 
 Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
@@ -231,7 +235,7 @@ When `enable_mock: true`, the plugin skips all I2C operations:
   - `linear_acceleration.{x,y,z}` = 0.0
 - `on_cleanup`: no suspend/close calls
 
-Mock mode is useful for integration testing, CI, and development on machines without a BNO055 attached. All 13 GTest unit tests and 10 launch tests pass in mock mode.
+Mock mode is useful for integration testing, CI, and development on machines without a BNO055 attached. All 14 GTest unit tests and 10 launch tests pass in mock mode.
 
 ---
 
@@ -363,7 +367,7 @@ test/
 
 ### Unit Tests: `test_hardware_interface.cpp`
 
-**13 tests** covering parameter validation, state interface export, lifecycle transitions, and mock-mode read behaviour.
+**14 tests** covering parameter validation, state interface export, lifecycle transitions, mock-mode read behaviour, and on_error() recovery path.
 
 **Parameter validation (`on_init`):**
 
@@ -389,6 +393,7 @@ test/
 | `MockHwTest.SameObjectReconfigureCycle` | Same plugin instance can be configured, cleaned up, and re-configured without reinstantiation (ros2_control lifecycle reuse) |
 | `MockHwTest.ShutdownFromInactive` | `on_shutdown` from inactive state returns `SUCCESS` |
 | `MockHwTest.ShutdownFromActive` | `on_shutdown` from active state returns `SUCCESS` |
+| `MockHwTest.OnErrorCleansUpAndAllowsRecovery` | `on_error()` returns `SUCCESS`, resets state doubles to initial values, and leaves the object in a state where `on_configure` succeeds (→ UNCONFIGURED recovery path) |
 
 **Read behaviour (mock mode):**
 

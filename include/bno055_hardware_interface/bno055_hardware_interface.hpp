@@ -73,6 +73,13 @@ public:
   hardware_interface::CallbackReturn on_shutdown(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  // Called by ros2_control when read() returns ERROR (after 10 consecutive failures).
+  // The base-class default returns ERROR → FINALIZED, bypassing on_cleanup and leaking
+  // the I2C fd. Override to close hardware and return SUCCESS → UNCONFIGURED so the
+  // controller manager can attempt reconfiguration without a process restart.
+  hardware_interface::CallbackReturn on_error(
+    const rclcpp_lifecycle::State & previous_state) override;
+
   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
   hardware_interface::return_type read(
