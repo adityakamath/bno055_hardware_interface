@@ -82,12 +82,12 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
 | `orientation.y` | – | Quaternion Y |
 | `orientation.z` | – | Quaternion Z |
 | `orientation.w` | – | Quaternion W |
-| `angular_velocity.x` | rad/s | Gyroscope unit set to RPS at configure time |
-| `angular_velocity.y` | rad/s | |
-| `angular_velocity.z` | rad/s | |
+| `angular_velocity.x` | rad/s | Gyroscope unit set to rad/s at configure time |
+| `angular_velocity.y` | rad/s | Gyroscope unit set to rad/s at configure time |
+| `angular_velocity.z` | rad/s | Gyroscope unit set to rad/s at configure time |
 | `linear_acceleration.x` | m/s² | Accelerometer unit set to m/s² at configure time |
-| `linear_acceleration.y` | m/s² | |
-| `linear_acceleration.z` | m/s² | |
+| `linear_acceleration.y` | m/s² | Accelerometer unit set to m/s² at configure time |
+| `linear_acceleration.z` | m/s² | Accelerometer unit set to m/s² at configure time |
 
 ## Documentation
 
