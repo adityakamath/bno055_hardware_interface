@@ -224,6 +224,13 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
 
   if (enable_mock_) {
     RCLCPP_INFO(logger_, "Mock mode enabled - skipping I2C initialization");
+    // Identity quaternion: represents no rotation (robot aligned with world frame).
+    // A zero quaternion is mathematically invalid and would produce NaN in the EKF.
+    hw_orientation_w_ = 1.0;
+    hw_orientation_x_ = 0.0;
+    hw_orientation_y_ = 0.0;
+    hw_orientation_z_ = 0.0;
+    // Angular velocity and linear acceleration stay at 0.0 (correct for a stationary mock).
     return hardware_interface::CallbackReturn::SUCCESS;
   }
 

@@ -116,7 +116,7 @@ ros2 launch bno055_hardware_interface bno055.launch.py i2c_bus:=3 i2c_addr:=29
 
 ```bash
 # Full ros2_control lifecycle, publishes identity quaternion + zero velocity
-ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
+ros2 launch bno055_hardware_interface bno055.launch.py enable_mock_mode:=true
 ```
 
 ### Example 4: Real Hardware with Saved Calibration
@@ -227,7 +227,7 @@ The node subscribes to `/imu_sensor_broadcaster/imu` and publishes a TF transfor
 | `i2c_addr` | `28` | string | Hex address without `0x`; `28` = ADR pin low (0x28), `29` = ADR pin high (0x29) |
 | `axis_remap` | `P1` | string | Mounting orientation P0–P7 per BNO055 datasheet §3.4 (see [design.md](design.md)) |
 | `sensor_mode` | `NDOF` | string | Fusion mode: `NDOF` (9-DOF absolute, default), `NDOF_FMC_OFF` (9-DOF, magnetically noisy env), `IMUPLUS` (6-DOF, no magnetometer) |
-| `enable_mock` | `false` | bool | Skip I2C; publish identity quaternion and zero velocity/acceleration |
+| `enable_mock_mode` | `false` | bool | Skip I2C; publishes identity quaternion (w=1) and zero velocity/acceleration; diagnostics reports OK with full calibration |
 | `calib_file` | `""` | string | Absolute path to YAML calibration file; empty = start uncalibrated |
 | `publish_tf` | `true` | bool | Enable the optional `imu_tf_broadcaster` relay node — publishes `world → base_link` TF for RViz visualisation; not needed for normal sensor operation |
 | `publish_diagnostics` | `true` | bool | Enable the optional `bno055_diagnostics` node — publishes calibration status and sensor health to `/diagnostics` at 1 Hz; not needed for normal sensor operation |
@@ -323,7 +323,7 @@ Each message contains a single `DiagnosticStatus` named `BNO055 IMU` with key-va
 
 3. **Test in mock mode:**
    ```bash
-   ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
+   ros2 launch bno055_hardware_interface bno055.launch.py enable_mock_mode:=true
    ```
    If mock mode works, the issue is hardware/I2C related.
 
@@ -409,7 +409,7 @@ colcon test-result --verbose
 | Test File | Type | Tests | What Is Covered |
 |-----------|------|-------|-----------------|
 | `test_hardware_interface.cpp` | C++ unit | 14 | Parameter parsing (incl. sensor_mode), state interface export, mock-mode lifecycle, read behaviour, shutdown transitions, on_error() recovery path |
-| `test_bno055.launch.py` | Launch integration | 10 | Full bringup with `enable_mock:=true`, node presence, topic availability, diagnostics |
+| `test_bno055.launch.py` | Launch integration | 10 | Full bringup with `enable_mock_mode:=true`, node presence, topic availability, diagnostics |
 | Linters | Style | 4+ | `flake8`, `pep257` (C++ linters disabled to avoid recursing into the Bosch vendor tree) |
 
 ### Run Specific Test Groups

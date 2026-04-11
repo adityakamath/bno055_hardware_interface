@@ -3,7 +3,7 @@ Launch integration test for bno055_hardware_interface.
 
 Launches the full ros2_control stack (robot_state_publisher, ros2_control_node,
 imu_sensor_broadcaster) against the physical BNO055 on /dev/i2c-1 at 0x28 when
-present, or in mock mode (enable_mock:=true) when the hardware is not detected,
+present, or in mock mode (enable_mock_mode:=true) when the hardware is not detected,
 so the suite always runs in CI regardless of sensor availability.
 """
 
@@ -50,7 +50,7 @@ def generate_test_description():
     """
     Launch the bno055 stack against real or mock hardware.
 
-    When the BNO055 is absent the stack is launched with enable_mock:=true
+    When the BNO055 is absent the stack is launched with enable_mock_mode:=true
     so all tests run against the software stub rather than being skipped.
     """
     from launch.actions import IncludeLaunchDescription
@@ -67,7 +67,7 @@ def generate_test_description():
         'publish_diagnostics':  'true',
     }
     if not BNO055_AVAILABLE:
-        launch_args['enable_mock'] = 'true'
+        launch_args['enable_mock_mode'] = 'true'
 
     bno055 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(bno055_launch),

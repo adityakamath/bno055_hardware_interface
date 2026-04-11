@@ -81,11 +81,11 @@ public:
     declare_parameter("i2c_bus",     1);
     declare_parameter("i2c_addr",    std::string("28"));
     declare_parameter("sensor_mode", std::string("NDOF"));
-    declare_parameter("enable_mock", false);
+    declare_parameter("enable_mock_mode", false);
 
     i2c_bus_     = get_parameter("i2c_bus").as_int();
     sensor_mode_ = get_parameter("sensor_mode").as_string();
-    enable_mock_ = get_parameter("enable_mock").as_bool();
+    enable_mock_ = get_parameter("enable_mock_mode").as_bool();
 
     // Parse i2c_addr hex string
     try {
@@ -151,12 +151,21 @@ private:
   void publish()
   {
     if (enable_mock_) {
+      // Publish realistic simulated values — same key-value structure as real hardware,
+      // representing a healthy, fully-calibrated sensor at ambient temperature.
       DiagnosticStatus status;
       status.name        = "BNO055 IMU";
       status.hardware_id = hardware_id_;
-      status.level       = DiagnosticStatus::WARN;
-      status.message     = "Mock mode — no I2C hardware";
-      status.values.push_back(kv("System Status", "Mock"));
+      status.level       = DiagnosticStatus::OK;
+      status.message     = "Sensor Fusion Running (mock)";
+      status.values.push_back(kv("System Status",     "Sensor Fusion Running"));
+      status.values.push_back(kv("Calibration (SYS)", "3/3"));
+      status.values.push_back(kv("Calibration (GYR)", "3/3"));
+      status.values.push_back(kv("Calibration (ACC)", "3/3"));
+      if (sensor_mode_ != "IMUPLUS") {
+        status.values.push_back(kv("Calibration (MAG)", "3/3"));
+      }
+      status.values.push_back(kv("Temperature",       "25.0 °C"));
       DiagnosticArray msg;
       msg.header.stamp = now();
       msg.status.push_back(std::move(status));

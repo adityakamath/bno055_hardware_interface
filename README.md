@@ -20,7 +20,7 @@
 - **Bosch SensorAPI Integration**: Uses the official [Bosch BNO055 driver](https://github.com/BoschSensortec/BNO055_driver) C library (git submodule); no third-party wrappers
 - **Axis Remapping**: 8 standard mounting orientations (P0–P7) configurable at launch, matching BNO055 datasheet §3.4
 - **Calibration Persistence**: Save sensor calibration offsets to a YAML file and load them automatically at boot via the `calib_file` hardware parameter; offsets are written in CONFIG mode before entering NDOF
-- **Mock Mode**: Run the complete `ros2_control` lifecycle and publish zero/identity values without any hardware — set `enable_mock:=true`
+- **Mock Mode**: Run the complete `ros2_control` lifecycle and publish zero/identity values without any hardware — set `enable_mock_mode:=true`
 - **TF Broadcasting**: Optional `imu_tf_broadcaster` relay node republishes the orientation quaternion as a dynamic `world → base_link` TF transform
 
 ## Quick Start
@@ -45,7 +45,7 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
     <param name="i2c_addr">28</param>
     <param name="axis_remap">P1</param>
     <param name="sensor_mode">NDOF</param>
-    <param name="enable_mock">false</param>
+    <param name="enable_mock_mode">false</param>
     <param name="calib_file"></param>
   </hardware>
   <sensor name="bno055">
@@ -71,7 +71,7 @@ See the **[Quick Start guide](docs/quick-start.md)** for detailed instructions o
 | `i2c_addr` | `string` | `"28"` | I2C address as hex without `0x` prefix (`28` = 0x28 ADR-low, `29` = 0x29 ADR-high) |
 | `axis_remap` | `string` | `"P1"` | Mounting orientation P0–P7 per BNO055 datasheet §3.4 |
 | `sensor_mode` | `string` | `"NDOF"` | Fusion mode: `NDOF` (9-DOF absolute), `NDOF_FMC_OFF` (9-DOF, magnetically noisy env), `IMUPLUS` (6-DOF, no magnetometer). Invalid values cause `on_init` to return `ERROR` |
-| `enable_mock` | `bool` | `false` | Skip I2C initialisation; publish constant zero/identity values |
+| `enable_mock_mode` | `bool` | `false` | Skip I2C initialisation; publishes identity quaternion (w=1) and zero velocity/acceleration; diagnostics reports OK with full calibration |
 | `calib_file` | `string` | `""` | Absolute path to calibration YAML; empty = start uncalibrated |
 
 ## State Interfaces
