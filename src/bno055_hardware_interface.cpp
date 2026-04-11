@@ -160,8 +160,8 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
-  // enable_mock (default: false)
-  enable_mock_ = parse_bool_param("enable_mock", false);
+  // enable_mock_mode (default: false)
+  enable_mock_ = parse_bool_param("enable_mock_mode", false);
 
   // calib_file (default: empty — no file, rely on in-sensor calibration)
   if (const auto it = info_.hardware_parameters.find("calib_file");

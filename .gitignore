@@ -1,0 +1,37 @@
+# ROS 2 build and Python artifacts
+build/
+install/
+log/
+*.pyc
+__pycache__/
+
+# CMake and other build system files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.swp
+*.swo
+
+# VSCode and editor files
+.vscode/
+.idea/
+*.code-workspace
+*.DS_Store
+
+# ROS 2 launch/test logs
+*.launch.pyc
+*.test.pyc
+
+# ROS 2 package index
+ament_index/
+
+# Misc
+*.orig
+*.bak
+*~
+*.egg-info/
+*.pyo
+
+# graphify
+graphify-out/

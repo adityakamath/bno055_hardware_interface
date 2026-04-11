@@ -31,7 +31,7 @@ namespace bno055_hardware_interface
  *   - i2c_bus      : I2C bus number, e.g. "1" for /dev/i2c-1  (default: "1")
  *   - i2c_addr     : Hex I2C address without 0x prefix, e.g. "28"  (default: "28")
  *   - axis_remap   : Placement config P0-P7 (datasheet §3.4)  (default: "P1")
- *   - enable_mock  : Skip real hardware, publish zeros         (default: "false")
+ *   - enable_mock_mode  : Skip real hardware, publish zeros         (default: "false")
  *   - calib_file   : Absolute path to YAML calibration file
  *                    (e.g. /home/user/.ros/bno055_calib.yaml).
  *                    When the file exists offsets are loaded onto the

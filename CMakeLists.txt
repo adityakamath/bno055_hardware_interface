@@ -147,7 +147,7 @@ if(BUILD_TESTING)
   )
 
   # Python launch test — full stack against real BNO055 hardware or mock mode.
-  # Uses enable_mock:=true when the sensor is absent so CI always runs all tests.
+  # Uses enable_mock_mode:=true when the sensor is absent so CI always runs all tests.
   add_launch_test(test/test_bno055.launch.py)
 endif()
 

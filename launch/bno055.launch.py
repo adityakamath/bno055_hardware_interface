@@ -11,7 +11,7 @@ Example usage:
     ros2 launch bno055_hardware_interface bno055.launch.py
     ros2 launch bno055_hardware_interface bno055.launch.py i2c_bus:=1 i2c_addr:=28
     ros2 launch bno055_hardware_interface bno055.launch.py axis_remap:=P2
-    ros2 launch bno055_hardware_interface bno055.launch.py enable_mock:=true
+    ros2 launch bno055_hardware_interface bno055.launch.py enable_mock_mode:=true
     ros2 launch bno055_hardware_interface bno055.launch.py publish_tf:=false
     ros2 launch bno055_hardware_interface bno055.launch.py publish_diagnostics:=false
 """
@@ -44,7 +44,7 @@ def generate_launch_description():
             description='BNO055 axis placement configuration: P0-P7 (see datasheet Table 3-4)'
         ),
         DeclareLaunchArgument(
-            'enable_mock',
+            'enable_mock_mode',
             default_value='false',
             description='Use mock/simulation mode (no hardware required)'
         ),
@@ -85,7 +85,7 @@ def generate_launch_description():
     i2c_bus = LaunchConfiguration('i2c_bus')
     i2c_addr = LaunchConfiguration('i2c_addr')
     axis_remap = LaunchConfiguration('axis_remap')
-    enable_mock = LaunchConfiguration('enable_mock')
+    enable_mock = LaunchConfiguration('enable_mock_mode')
     sensor_mode = LaunchConfiguration('sensor_mode')
     calib_file = LaunchConfiguration('calib_file')
     publish_tf = LaunchConfiguration('publish_tf')
@@ -106,7 +106,7 @@ def generate_launch_description():
             ' ',
             'axis_remap:=', axis_remap,
             ' ',
-            'enable_mock:=', enable_mock,
+            'enable_mock_mode:=', enable_mock,
             ' ',
             'sensor_mode:=', sensor_mode,
             ' ',

@@ -73,7 +73,7 @@ TEST(InitTest, ValidParams)
   EXPECT_EQ(init(make_valid_imu_info(0, "29")), CallbackReturn::SUCCESS);  // bus 0, addr 0x29
 
   auto mock = make_valid_imu_info();
-  mock.hardware_parameters["enable_mock"] = "true";
+  mock.hardware_parameters["enable_mock_mode"] = "true";
   EXPECT_EQ(init(mock), CallbackReturn::SUCCESS);
 
   auto calib = make_valid_imu_info();
@@ -185,7 +185,7 @@ protected:
   {
     hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
     auto info = make_valid_imu_info();
-    info.hardware_parameters["enable_mock"] = "true";
+    info.hardware_parameters["enable_mock_mode"] = "true";
     ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
   }
 
@@ -222,7 +222,7 @@ TEST_F(MockHwTest, ReconfigureAfterCleanup)
 
   hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
   auto info = make_valid_imu_info();
-  info.hardware_parameters["enable_mock"] = "true";
+  info.hardware_parameters["enable_mock_mode"] = "true";
   ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
