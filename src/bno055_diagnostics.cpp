@@ -70,10 +70,27 @@ static KeyValue kv(const std::string & key, const std::string & value)
   return KeyValue{}.set__key(key).set__value(value);
 }
 
+// Helper to parse a bool parameter from rclcpp::Node, accepting both bool and string types
+static bool parse_bool_param(rclcpp::Node* node, const std::string& name, bool default_value) {
+  if (!node->has_parameter(name)) {
+    return default_value;
+  }
+  const auto& param = node->get_parameter(name);
+  if (param.get_type() == rclcpp::ParameterType::PARAMETER_BOOL) {
+    return param.as_bool();
+  } else if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+    std::string val = param.as_string();
+    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+    return (val == "true" || val == "1" || val == "yes" || val == "on");
+  }
+  return default_value;
+}
+
 // ── node ──────────────────────────────────────────────────────────────────────
 
 class BNO055DiagnosticsNode : public rclcpp::Node
 {
+
 public:
   explicit BNO055DiagnosticsNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("bno055_diagnostics", options)
@@ -81,11 +98,11 @@ public:
     declare_parameter("i2c_bus",     1);
     declare_parameter("i2c_addr",    std::string("28"));
     declare_parameter("sensor_mode", std::string("NDOF"));
-    declare_parameter("enable_mock_mode", false);
+    declare_parameter("enable_mock_mode", std::string("false"));
 
     i2c_bus_     = get_parameter("i2c_bus").as_int();
     sensor_mode_ = get_parameter("sensor_mode").as_string();
-    enable_mock_ = get_parameter("enable_mock_mode").as_bool();
+    enable_mock_ = parse_bool_param(this, "enable_mock_mode", false);
 
     // Parse i2c_addr hex string
     try {

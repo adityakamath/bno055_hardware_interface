@@ -166,7 +166,7 @@ def generate_launch_description():
             'i2c_bus':     i2c_bus,
             'i2c_addr':    ParameterValue(i2c_addr, value_type=str),
             'sensor_mode': sensor_mode,
-            'enable_mock_mode': ParameterValue(enable_mock, value_type=bool),
+            'enable_mock_mode': ParameterValue(enable_mock, value_type=str),
         }],
         condition=IfCondition(publish_diagnostics),
     )
