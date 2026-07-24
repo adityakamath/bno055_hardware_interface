@@ -122,11 +122,15 @@ install(DIRECTORY config launch
 )
 
 if(BUILD_TESTING)
-  # Suppress only the C/C++ style linters that recurse into the external/ Bosch
-  # vendor tree and trip on its non-standard formatting conventions.
-  # copyright and lint_cmake do not inspect external C sources, so they run normally.
+  # Suppress the C/C++ style linters that recurse into the external/ Bosch vendor tree
+  # and trip on its non-standard formatting conventions. lint_cmake does not inspect
+  # external C sources, so it runs normally.
   set(ament_cmake_cpplint_FOUND TRUE)
   set(ament_cmake_uncrustify_FOUND TRUE)
+
+  # No source file in this repo has a copyright header - matches sts_hardware_interface's
+  # own convention (same suppression, same reasoning) rather than adding headers.
+  set(ament_cmake_copyright_FOUND TRUE)
 
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
