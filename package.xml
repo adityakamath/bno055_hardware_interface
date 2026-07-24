@@ -15,9 +15,6 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- libi2c-dev is a Debian/Ubuntu APT package, not a standard rosdep key.
-       Install manually: sudo apt install libi2c-dev
-       Or via rosdep with a custom sources list entry. -->
   <build_depend>libi2c-dev</build_depend>
 
   <depend>rclcpp</depend>
