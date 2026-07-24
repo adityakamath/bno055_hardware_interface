@@ -6,6 +6,12 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
+# bno055_driver and bno055_i2c are STATIC libraries that both end up linked into the
+# SHARED plugin library below - without this, x86_64 rejects the link ("recompile with
+# -fPIC"); some arm64 toolchains tolerate it by default, which is why this only showed up
+# in CI, not on-device.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
