@@ -10,39 +10,58 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        ros_distribution: [jazzy]
+    name: colcon test (ros:kilted)
+    runs-on: ubuntu-latest
+    container: ros:kilted
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
+          path: src/bno055_hardware_interface
 
-      - uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: ${{ matrix.ros_distribution }}
-
-      # libi2c-dev provides <i2c/smbus.h> for src/bno055_i2c.c - it's a plain Debian package,
-      # not a registered rosdep key, so rosdep would fail trying to resolve it on its own.
-      # Installed manually here; rosdep-skip-keys tells action-ros-ci not to try.
-      - name: Install libi2c-dev
-        run: sudo apt-get update && sudo apt-get install -y libi2c-dev
+      - name: Install ROS dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            libi2c-dev \
+            ros-kilted-ament-cmake-gtest \
+            ros-kilted-ament-lint-auto \
+            ros-kilted-ament-lint-common \
+            ros-kilted-controller-manager \
+            ros-kilted-controller-manager-msgs \
+            ros-kilted-diagnostic-msgs \
+            ros-kilted-geometry-msgs \
+            ros-kilted-hardware-interface \
+            ros-kilted-imu-sensor-broadcaster \
+            ros-kilted-launch-ros \
+            ros-kilted-launch-testing-ament-cmake \
+            ros-kilted-pluginlib \
+            ros-kilted-rclcpp \
+            ros-kilted-rclcpp-lifecycle \
+            ros-kilted-robot-state-publisher \
+            ros-kilted-sensor-msgs \
+            ros-kilted-tf2-ros \
+            ros-kilted-xacro
 
       # test_hardware_interface (gtest) and test_bno055.launch.py both fall back to
       # enable_mock_mode:=true when no physical BNO055 is present, so the full suite runs
       # here the same way it would against real hardware. ament_lint_auto's cpplint/
-      # uncrustify/cppcheck/xmllint/copyright checks run alongside them via colcon test;
-      # clang-tidy's own static analysis stays in its separate workflow.
-      - uses: ros-tooling/action-ros-ci@v0.4
-        with:
-          package-name: bno055_hardware_interface
-          target-ros2-distro: ${{ matrix.ros_distribution }}
-          rosdep-skip-keys: libi2c-dev
+      # uncrustify/cppcheck/xmllint/copyright checks run alongside them; clang-tidy's own
+      # static analysis stays in its own workflow.
+      - name: colcon build
+        run: |
+          . /opt/ros/kilted/setup.sh
+          colcon build --packages-select bno055_hardware_interface
+
+      - name: colcon test
+        run: |
+          . /opt/ros/kilted/setup.sh
+          . install/setup.sh
+          colcon test --packages-select bno055_hardware_interface --event-handlers console_direct+
+          colcon test-result --verbose
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: colcon-logs-${{ matrix.ros_distribution }}
-          path: ros_ws/log
+          name: colcon-logs
+          path: log
