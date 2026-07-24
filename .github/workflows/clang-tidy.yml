@@ -1,0 +1,141 @@
+name: clang-tidy
+
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.cpp'
+      - '**.h'
+      - '**.hpp'
+      - 'CMakeLists.txt'
+      - '.clang-tidy'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - '**.c'
+      - '**.cpp'
+      - '**.h'
+      - '**.hpp'
+      - 'CMakeLists.txt'
+      - '.clang-tidy'
+  workflow_dispatch:
+
+jobs:
+  clang-tidy-check:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 clang++-18 clang-tidy-18 libi2c-dev
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 100
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+
+      - name: Setup ROS 2 Jazzy
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+
+      - name: Install ROS 2 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ros-jazzy-diagnostic-msgs \
+            ros-jazzy-geometry-msgs \
+            ros-jazzy-hardware-interface \
+            ros-jazzy-pluginlib \
+            ros-jazzy-rclcpp \
+            ros-jazzy-rclcpp-lifecycle \
+            ros-jazzy-sensor-msgs \
+            ros-jazzy-tf2-ros
+
+      - name: Create workspace
+        run: |
+          mkdir -p ~/ros2_ws/src
+          cp -r ${{ github.workspace }} ~/ros2_ws/src/bno055_hardware_interface
+
+      - name: Build with compile_commands.json
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd ~/ros2_ws
+          colcon build \
+            --packages-select bno055_hardware_interface \
+            --cmake-args \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_C_COMPILER=clang-18 \
+              -DCMAKE_CXX_COMPILER=clang++-18
+
+      - name: Run clang-tidy
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd ~/ros2_ws/src/bno055_hardware_interface
+
+          # Only our own code - external/BNO055_driver is Bosch's vendored driver and isn't
+          # ours to lint (same reasoning the CMakeLists already applies to cpplint/uncrustify).
+          mkdir -p clang-tidy-results
+
+          EXIT_CODE=0
+
+          echo "Running clang-tidy on source files..."
+          for file in $(find src include -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp"); do
+            echo "Checking: $file"
+            clang-tidy \
+              -p ~/ros2_ws/build/bno055_hardware_interface \
+              "$file" \
+              > clang-tidy-results/$(basename $file).txt 2>&1 || EXIT_CODE=1
+          done
+
+          cat clang-tidy-results/*.txt > clang-tidy-results/full-report.txt
+
+          echo "================================"
+          echo "clang-tidy Summary"
+          echo "================================"
+          cat clang-tidy-results/full-report.txt
+
+          exit $EXIT_CODE
+
+      - name: Upload clang-tidy results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: clang-tidy-results
+          path: ~/ros2_ws/src/bno055_hardware_interface/clang-tidy-results/
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = process.env.HOME + '/ros2_ws/src/bno055_hardware_interface/clang-tidy-results/full-report.txt';
+
+            let report = 'clang-tidy found issues:\n\n```\n';
+            try {
+              report += fs.readFileSync(reportPath, 'utf8');
+            } catch (error) {
+              report += 'Error reading report file';
+            }
+            report += '\n```';
+
+            if (report.length > 65000) {
+              report = report.substring(0, 65000) + '\n... (truncated)';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
