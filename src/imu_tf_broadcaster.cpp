@@ -22,9 +22,11 @@
 #include "sensor_msgs/msg/imu.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 
+/** @brief Relays the orientation of an Imu topic as a dynamic TF transform */
 class ImuTfBroadcaster : public rclcpp::Node
 {
 public:
+  /** @brief Declare parameters and subscribe to the Imu topic */
   explicit ImuTfBroadcaster(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("imu_tf_broadcaster", options)
   {
@@ -53,6 +55,7 @@ public:
   }
 
 private:
+  /** @brief Republish the Imu orientation as a transform from parent_frame to child_frame */
   void callback(const sensor_msgs::msg::Imu::ConstSharedPtr & msg)
   {
     geometry_msgs::msg::TransformStamped t;
@@ -74,6 +77,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_;
 };
 
+/** @brief Run the IMU TF broadcaster node */
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

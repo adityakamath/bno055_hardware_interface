@@ -26,6 +26,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """Launch the BNO055 ros2_control stack, IMU broadcaster, diagnostics and optional TF relay."""
     # Declare arguments
     declared_arguments = [
         DeclareLaunchArgument(
@@ -142,7 +143,12 @@ def generate_launch_description():
     imu_broadcaster_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['imu_sensor_broadcaster', '--controller-manager', '/controller_manager'],
+        arguments=[
+            'imu_sensor_broadcaster',
+            '--controller-manager', '/controller_manager',
+            # Lyrical no longer forwards the controller_manager's ROS args to controllers
+            '--param-file', controller_config,
+        ],
     )
 
     # Optional: relay IMU orientation to TF for RViz 3D visualization.

@@ -1,6 +1,7 @@
 #ifndef BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 #define BNO055_HARDWARE_INTERFACE__BNO055_HARDWARE_INTERFACE_HPP_
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -54,24 +55,31 @@ class BNO055HardwareInterface : public hardware_interface::SensorInterface
 public:
   RCLCPP_SHARED_PTR_DEFINITIONS(BNO055HardwareInterface)
 
+  /** @brief Construct the interface with the plugin logger */
   BNO055HardwareInterface()
   : logger_(rclcpp::get_logger("BNO055HardwareInterface")) {}
 
+  /** @brief Parse URDF parameters and validate the declared state interfaces */
   hardware_interface::CallbackReturn on_init(
-    const hardware_interface::HardwareInfo & hardware_info) override;  // NOLINT(deprecation)
+    const hardware_interface::HardwareComponentInterfaceParams & params) override;
 
+  /** @brief Open I2C, configure the fusion mode and load calibration offsets */
   hardware_interface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  /** @brief Start reporting sensor data */
   hardware_interface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  /** @brief Stop reporting sensor data */
   hardware_interface::CallbackReturn on_deactivate(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  /** @brief Suspend the sensor, close I2C and reset states */
   hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
+  /** @brief Suspend the sensor, close I2C and reset states */
   hardware_interface::CallbackReturn on_shutdown(
     const rclcpp_lifecycle::State & previous_state) override;
 
@@ -82,8 +90,7 @@ public:
   hardware_interface::CallbackReturn on_error(
     const rclcpp_lifecycle::State & previous_state) override;
 
-  std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
-
+  /** @brief Poll the BNO055 and publish orientation, angular velocity and linear acceleration */
   hardware_interface::return_type read(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
@@ -91,14 +98,29 @@ private:
   // Load calibration offsets from calib_file_ and write them to the sensor
   // (must be called while the sensor is in CONFIG mode).
   // Returns true if the file was found and applied, false if absent or on error.
+  /** @brief Write the offsets from calib_file_ to the sensor; false if absent or on error */
   bool load_calib_offsets();
 
   // Suspend the sensor and close the I2C file descriptor.
   // Called by both on_cleanup and on_shutdown.
+  /** @brief Suspend the sensor, close the I2C fd and reset states */
   void close_hardware();
+
+  // Cache the framework-owned state handles for the interfaces declared in the URDF.
+  /** @brief Cache the framework-owned handles of the declared state interfaces */
+  void cache_state_handles();
+
+  // Write a state value; no-op if the interface was not declared in the URDF.
+  /** @brief Write a state value (no-op if the interface is not declared) */
+  void set_value(size_t index, double value);
+
+  // Reset all states to their initial values (identity quaternion, zeros elsewhere).
+  /** @brief Reset states to the identity quaternion with zero velocity and acceleration */
+  void reset_states();
 
   // Parse a boolean hardware parameter; returns default_value if the key is absent.
   // Accepts only "true" — mirrors the xacro $(arg ...) string convention.
+  /** @brief Parse a boolean hardware parameter, returning default_value if absent */
   bool parse_bool_param(const std::string & key, bool default_value) const;
 
   rclcpp::Logger logger_;
@@ -117,17 +139,14 @@ private:
   // Bosch Sensortec driver handle
   bno055_t sensor_{};
 
-  // State storage -- 10 interfaces
-  double hw_orientation_x_{0.0};
-  double hw_orientation_y_{0.0};
-  double hw_orientation_z_{0.0};
-  double hw_orientation_w_{1.0};
-  double hw_angular_velocity_x_{0.0};
-  double hw_angular_velocity_y_{0.0};
-  double hw_angular_velocity_z_{0.0};
-  double hw_linear_acceleration_x_{0.0};
-  double hw_linear_acceleration_y_{0.0};
-  double hw_linear_acceleration_z_{0.0};
+  // State interfaces (framework-owned) -- 10 interfaces, order matches kStateNames in the .cpp
+  enum StateIndex : size_t {
+    ORIENTATION_X, ORIENTATION_Y, ORIENTATION_Z, ORIENTATION_W,
+    ANGULAR_VELOCITY_X, ANGULAR_VELOCITY_Y, ANGULAR_VELOCITY_Z,
+    LINEAR_ACCELERATION_X, LINEAR_ACCELERATION_Y, LINEAR_ACCELERATION_Z,
+    STATE_COUNT
+  };
+  std::array<hardware_interface::StateInterface::SharedPtr, STATE_COUNT> state_handles_{};
 };
 
 }  // namespace bno055_hardware_interface

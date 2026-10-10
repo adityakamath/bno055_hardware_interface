@@ -11,6 +11,7 @@
 #include "bno055_hardware_interface/bno055_hardware_interface.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <map>
@@ -24,6 +25,7 @@
 namespace
 {
 
+/** @brief Parse a flat "key: value" calibration YAML into accel/gyro/mag offsets; false if unreadable */
 bool parse_calib_yaml(
   const std::string & path,
   bno055_accel_offset_t & ao,
@@ -111,15 +113,13 @@ namespace bno055_hardware_interface
 
 // ── on_init: parse URDF hardware parameters ──────────────────────────────────
 
+/** @brief Parse and validate URDF parameters and state interfaces */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
-  const hardware_interface::HardwareInfo & hardware_info)
+  const hardware_interface::HardwareComponentInterfaceParams & params)
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  if (hardware_interface::SensorInterface::on_init(hardware_info) !=
+  if (hardware_interface::SensorInterface::on_init(params) !=
     hardware_interface::CallbackReturn::SUCCESS)
   {
-#pragma GCC diagnostic pop
     return hardware_interface::CallbackReturn::ERROR;
   }
 
@@ -195,6 +195,13 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z",
   };
   for (const auto & si : info_.sensors[0].state_interfaces) {
+    // Values are written as double; any other handle type would throw in set_state().
+    if (si.data_type != "double") {
+      RCLCPP_ERROR(
+        logger_, "State interface '%s' has data_type '%s'; only 'double' is supported",
+        si.name.c_str(), si.data_type.c_str());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
     if (std::find(kExpected.begin(), kExpected.end(), si.name) == kExpected.end()) {
       RCLCPP_ERROR(
         logger_, "Unexpected state interface '%s'. Expected one of: "
@@ -216,21 +223,19 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 
 // ── on_configure: open I2C, init Bosch driver, configure BNO055 ──────────────
 
+/** @brief Open I2C, configure the fusion mode and load calibration offsets */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(logger_, "Configuring BNO055...");
   consecutive_read_errors_ = 0;
 
+  // Identity quaternion (no rotation); a zero quaternion is invalid and would produce NaN in the EKF.
+  cache_state_handles();
+  reset_states();
+
   if (enable_mock_) {
     RCLCPP_INFO(logger_, "Mock mode enabled - skipping I2C initialization");
-    // Identity quaternion: represents no rotation (robot aligned with world frame).
-    // A zero quaternion is mathematically invalid and would produce NaN in the EKF.
-    hw_orientation_w_ = 1.0;
-    hw_orientation_x_ = 0.0;
-    hw_orientation_y_ = 0.0;
-    hw_orientation_z_ = 0.0;
-    // Angular velocity and linear acceleration stay at 0.0 (correct for a stationary mock).
     return hardware_interface::CallbackReturn::SUCCESS;
   }
 
@@ -332,6 +337,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
 // ── load_calib_offsets: read YAML file and write offsets to sensor ───────────
 // Called in on_configure while the sensor is still in CONFIG mode.
 
+/** @brief Write the offsets from calib_file_ to the sensor; false if absent or on error */
 bool BNO055HardwareInterface::load_calib_offsets()
 {
   bno055_accel_offset_t ao{};
@@ -363,6 +369,7 @@ bool BNO055HardwareInterface::load_calib_offsets()
 
 // ── on_activate / on_deactivate / on_cleanup ─────────────────────────────────
 
+/** @brief Start reporting sensor data */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -370,6 +377,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_activate(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Stop reporting sensor data */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -377,6 +385,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -384,6 +393,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -391,6 +401,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Close hardware and return to UNCONFIGURED so reconfiguration can be attempted */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_error(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -399,6 +410,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_error(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 void BNO055HardwareInterface::close_hardware()
 {
   if (!enable_mock_) {
@@ -406,43 +418,45 @@ void BNO055HardwareInterface::close_hardware()
     bno055_i2c_close();
     RCLCPP_INFO(logger_, "BNO055 suspended and I2C closed");
   }
-  hw_orientation_x_ = 0.0;
-  hw_orientation_y_ = 0.0;
-  hw_orientation_z_ = 0.0;
-  hw_orientation_w_ = 1.0;
-  hw_angular_velocity_x_    = 0.0;
-  hw_angular_velocity_y_    = 0.0;
-  hw_angular_velocity_z_    = 0.0;
-  hw_linear_acceleration_x_ = 0.0;
-  hw_linear_acceleration_y_ = 0.0;
-  hw_linear_acceleration_z_ = 0.0;
+  reset_states();
 }
 
-// ── export_state_interfaces ───────────────────────────────────────────────────
+// ── state handle helpers ─────────────────────────────────────────────────────
 
-std::vector<hardware_interface::StateInterface>
-BNO055HardwareInterface::export_state_interfaces()
+static const std::array<const char *, 10> kStateNames = {
+  "orientation.x", "orientation.y", "orientation.z", "orientation.w",
+  "angular_velocity.x", "angular_velocity.y", "angular_velocity.z",
+  "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z"};
+
+/** @brief Cache the framework-owned handles of the declared state interfaces */
+void BNO055HardwareInterface::cache_state_handles()
 {
   const std::string & sensor_name = info_.sensors[0].name;
-  std::vector<hardware_interface::StateInterface> state_interfaces;
+  for (size_t i = 0; i < STATE_COUNT; ++i) {
+    const std::string name = sensor_name + "/" + kStateNames[i];
+    state_handles_[i] = has_state(name) ? get_state_interface_handle(name) : nullptr;
+  }
+}
 
-  state_interfaces.emplace_back(sensor_name, "orientation.x",         &hw_orientation_x_);
-  state_interfaces.emplace_back(sensor_name, "orientation.y",         &hw_orientation_y_);
-  state_interfaces.emplace_back(sensor_name, "orientation.z",         &hw_orientation_z_);
-  state_interfaces.emplace_back(sensor_name, "orientation.w",         &hw_orientation_w_);
-  state_interfaces.emplace_back(sensor_name, "angular_velocity.x",    &hw_angular_velocity_x_);
-  state_interfaces.emplace_back(sensor_name, "angular_velocity.y",    &hw_angular_velocity_y_);
-  state_interfaces.emplace_back(sensor_name, "angular_velocity.z",    &hw_angular_velocity_z_);
-  state_interfaces.emplace_back(sensor_name, "linear_acceleration.x", &hw_linear_acceleration_x_);
-  state_interfaces.emplace_back(sensor_name, "linear_acceleration.y", &hw_linear_acceleration_y_);
-  state_interfaces.emplace_back(sensor_name, "linear_acceleration.z", &hw_linear_acceleration_z_);
+/** @brief Write a state value (no-op if the interface is not declared) */
+void BNO055HardwareInterface::set_value(size_t index, double value)
+{
+  if (state_handles_[index]) {
+    (void)set_state(state_handles_[index], value, true);
+  }
+}
 
-  RCLCPP_INFO(logger_, "Exported 10 state interfaces for sensor '%s'", sensor_name.c_str());
-  return state_interfaces;
+/** @brief Reset states to the identity quaternion with zero velocity and acceleration */
+void BNO055HardwareInterface::reset_states()
+{
+  for (size_t i = 0; i < STATE_COUNT; ++i) {
+    set_value(i, i == ORIENTATION_W ? 1.0 : 0.0);
+  }
 }
 
 // ── read: poll BNO055 and update state interfaces ────────────────────────────
 
+/** @brief Poll the BNO055 and publish orientation, angular velocity and linear acceleration */
 hardware_interface::return_type BNO055HardwareInterface::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
@@ -486,23 +500,24 @@ hardware_interface::return_type BNO055HardwareInterface::read(
   const double qz = quat.z * QUATERNION_SCALE;
   const double norm = std::sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
   if (norm > 1e-6) {
-    hw_orientation_w_ = qw / norm;
-    hw_orientation_x_ = qx / norm;
-    hw_orientation_y_ = qy / norm;
-    hw_orientation_z_ = qz / norm;
+    set_value(ORIENTATION_W, qw / norm);
+    set_value(ORIENTATION_X, qx / norm);
+    set_value(ORIENTATION_Y, qy / norm);
+    set_value(ORIENTATION_Z, qz / norm);
   }
 
-  hw_angular_velocity_x_ = gyro.x / BNO055_GYRO_DIV_RPS;
-  hw_angular_velocity_y_ = gyro.y / BNO055_GYRO_DIV_RPS;
-  hw_angular_velocity_z_ = gyro.z / BNO055_GYRO_DIV_RPS;
+  set_value(ANGULAR_VELOCITY_X, gyro.x / BNO055_GYRO_DIV_RPS);
+  set_value(ANGULAR_VELOCITY_Y, gyro.y / BNO055_GYRO_DIV_RPS);
+  set_value(ANGULAR_VELOCITY_Z, gyro.z / BNO055_GYRO_DIV_RPS);
 
-  hw_linear_acceleration_x_ = lin_accel.x / BNO055_LINEAR_ACCEL_DIV_MSQ;
-  hw_linear_acceleration_y_ = lin_accel.y / BNO055_LINEAR_ACCEL_DIV_MSQ;
-  hw_linear_acceleration_z_ = lin_accel.z / BNO055_LINEAR_ACCEL_DIV_MSQ;
+  set_value(LINEAR_ACCELERATION_X, lin_accel.x / BNO055_LINEAR_ACCEL_DIV_MSQ);
+  set_value(LINEAR_ACCELERATION_Y, lin_accel.y / BNO055_LINEAR_ACCEL_DIV_MSQ);
+  set_value(LINEAR_ACCELERATION_Z, lin_accel.z / BNO055_LINEAR_ACCEL_DIV_MSQ);
 
   return hardware_interface::return_type::OK;
 }
 
+/** @brief Parse a boolean hardware parameter; only "true" counts as true */
 bool BNO055HardwareInterface::parse_bool_param(
   const std::string & key, bool default_value) const
 {
