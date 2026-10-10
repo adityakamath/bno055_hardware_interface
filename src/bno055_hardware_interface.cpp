@@ -112,6 +112,7 @@ namespace bno055_hardware_interface
 
 // ── on_init: parse URDF hardware parameters ──────────────────────────────────
 
+/** @brief Parse and validate URDF parameters and state interfaces */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
   const hardware_interface::HardwareComponentInterfaceParams & params)
 {
@@ -401,6 +402,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_error(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 void BNO055HardwareInterface::close_hardware()
 {
   if (!enable_mock_) {
@@ -418,6 +420,7 @@ static const std::array<const char *, 10> kStateNames = {
   "angular_velocity.x", "angular_velocity.y", "angular_velocity.z",
   "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z"};
 
+/** @brief Cache the framework-owned handles of the declared state interfaces */
 void BNO055HardwareInterface::cache_state_handles()
 {
   const std::string & sensor_name = info_.sensors[0].name;
@@ -427,6 +430,7 @@ void BNO055HardwareInterface::cache_state_handles()
   }
 }
 
+/** @brief Write a state value (no-op if the interface is not declared) */
 void BNO055HardwareInterface::set_value(size_t index, double value)
 {
   if (state_handles_[index]) {
@@ -434,6 +438,7 @@ void BNO055HardwareInterface::set_value(size_t index, double value)
   }
 }
 
+/** @brief Reset states to the identity quaternion with zero velocity and acceleration */
 void BNO055HardwareInterface::reset_states()
 {
   for (size_t i = 0; i < STATE_COUNT; ++i) {
@@ -443,6 +448,7 @@ void BNO055HardwareInterface::reset_states()
 
 // ── read: poll BNO055 and update state interfaces ────────────────────────────
 
+/** @brief Poll the BNO055 and publish orientation, angular velocity and linear acceleration */
 hardware_interface::return_type BNO055HardwareInterface::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
