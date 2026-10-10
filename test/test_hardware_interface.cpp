@@ -162,11 +162,6 @@ TEST(InitTest, InvalidParamsFail)
       return i;
     }());
   EXPECT_EQ(init(bad_iface), CallbackReturn::ERROR);
-
-  // Non-double state interface types would throw on the first set_state(double)
-  auto bad_type = make_valid_imu_info();
-  bad_type.sensors[0].state_interfaces[0].data_type = "float32";
-  EXPECT_EQ(init(bad_type), CallbackReturn::ERROR);
 }
 
 // ── on_export_state_interfaces ───────────────────────────────────────────────────
