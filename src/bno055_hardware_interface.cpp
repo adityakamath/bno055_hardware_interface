@@ -25,6 +25,7 @@
 namespace
 {
 
+/** @brief Parse a flat "key: value" calibration YAML into accel/gyro/mag offsets; false if unreadable */
 bool parse_calib_yaml(
   const std::string & path,
   bno055_accel_offset_t & ao,
@@ -222,6 +223,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
 
 // ── on_configure: open I2C, init Bosch driver, configure BNO055 ──────────────
 
+/** @brief Open I2C, configure the fusion mode and load calibration offsets */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -335,6 +337,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_configure(
 // ── load_calib_offsets: read YAML file and write offsets to sensor ───────────
 // Called in on_configure while the sensor is still in CONFIG mode.
 
+/** @brief Write the offsets from calib_file_ to the sensor; false if absent or on error */
 bool BNO055HardwareInterface::load_calib_offsets()
 {
   bno055_accel_offset_t ao{};
@@ -366,6 +369,7 @@ bool BNO055HardwareInterface::load_calib_offsets()
 
 // ── on_activate / on_deactivate / on_cleanup ─────────────────────────────────
 
+/** @brief Start reporting sensor data */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -373,6 +377,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_activate(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Stop reporting sensor data */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -380,6 +385,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_deactivate(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -387,6 +393,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_cleanup(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Suspend the sensor, close I2C and reset states */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -394,6 +401,7 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_shutdown(
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+/** @brief Close hardware and return to UNCONFIGURED so reconfiguration can be attempted */
 hardware_interface::CallbackReturn BNO055HardwareInterface::on_error(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
@@ -509,6 +517,7 @@ hardware_interface::return_type BNO055HardwareInterface::read(
   return hardware_interface::return_type::OK;
 }
 
+/** @brief Parse a boolean hardware parameter; only "true" counts as true */
 bool BNO055HardwareInterface::parse_bool_param(
   const std::string & key, bool default_value) const
 {

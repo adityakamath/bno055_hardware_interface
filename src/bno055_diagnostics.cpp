@@ -34,6 +34,7 @@ using diagnostic_msgs::msg::KeyValue;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+/** @brief Map a BNO055 SYS_STATUS code to its description */
 static std::string sys_status_string(uint8_t code)
 {
   switch (code) {
@@ -48,6 +49,7 @@ static std::string sys_status_string(uint8_t code)
   }
 }
 
+/** @brief Map a BNO055 SYS_ERR code to its description */
 static std::string sys_error_string(uint8_t code)
 {
   switch (code) {
@@ -65,12 +67,14 @@ static std::string sys_error_string(uint8_t code)
   }
 }
 
+/** @brief Build a diagnostic KeyValue pair */
 static KeyValue kv(const std::string & key, const std::string & value)
 {
   return KeyValue{}.set__key(key).set__value(value);
 }
 
 // Helper to parse a bool parameter from rclcpp::Node, accepting both bool and string types
+/** @brief Read a bool parameter that may be declared as a bool or a string */
 static bool parse_bool_param(rclcpp::Node* node, const std::string& name, bool default_value) {
   if (!node->has_parameter(name)) {
     return default_value;
@@ -88,10 +92,12 @@ static bool parse_bool_param(rclcpp::Node* node, const std::string& name, bool d
 
 // ── node ──────────────────────────────────────────────────────────────────────
 
+/** @brief Publishes BNO055 health and calibration status to /diagnostics at 1 Hz */
 class BNO055DiagnosticsNode : public rclcpp::Node
 {
 
 public:
+  /** @brief Read parameters, open the sensor (unless mock) and start the publish timer */
   explicit BNO055DiagnosticsNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("bno055_diagnostics", options)
   {
@@ -157,6 +163,7 @@ public:
     timer_ = create_wall_timer(1s, [this]() { publish(); });
   }
 
+  /** @brief Close the I2C connection */
   ~BNO055DiagnosticsNode()
   {
     if (!enable_mock_) {
@@ -165,6 +172,7 @@ public:
   }
 
 private:
+  /** @brief Read calibration, system status and temperature, then publish a DiagnosticArray */
   void publish()
   {
     if (enable_mock_) {
@@ -263,6 +271,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 };
 
+/** @brief Run the BNO055 diagnostics node */
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

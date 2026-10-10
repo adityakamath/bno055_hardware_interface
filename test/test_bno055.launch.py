@@ -132,16 +132,20 @@ class TestBNO055Launch(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        """Initialize rclpy once for the test class."""
         rclpy.init()
 
     @classmethod
     def tearDownClass(cls):
+        """Shut rclpy down after the last test."""
         rclpy.shutdown()
 
     def setUp(self):
+        """Create a fresh test node."""
         self.node = rclpy.create_node('test_bno055_launch_node')
 
     def tearDown(self):
+        """Destroy the test node."""
         if hasattr(self, 'node'):
             self.node.destroy_node()
 

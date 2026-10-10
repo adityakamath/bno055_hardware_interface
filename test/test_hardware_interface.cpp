@@ -19,6 +19,7 @@ using hardware_interface::return_type;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+/** @brief Build a valid single-sensor HardwareInfo declaring all 10 state interfaces */
 hardware_interface::HardwareInfo make_valid_imu_info(
   int i2c_bus = 1,
   const std::string & i2c_addr = "28",
@@ -47,6 +48,7 @@ hardware_interface::HardwareInfo make_valid_imu_info(
 }
 
 // Framework entry point: init() calls on_init() and creates the URDF-declared interface handles.
+/** @brief Initialize through the framework entry point init(), which calls on_init() */
 static CallbackReturn init_hw(
   bno055_hardware_interface::BNO055HardwareInterface & hw,
   const hardware_interface::HardwareInfo & info)
@@ -56,16 +58,19 @@ static CallbackReturn init_hw(
   return hw.init(params);
 }
 
+/** @brief Lifecycle state passed to on_configure */
 static rclcpp_lifecycle::State unconfigured_state()
 {
   return rclcpp_lifecycle::State(
     lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED, "unconfigured");
 }
+/** @brief Lifecycle state passed to on_activate and on_cleanup */
 static rclcpp_lifecycle::State inactive_state()
 {
   return rclcpp_lifecycle::State(
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE, "inactive");
 }
+/** @brief Lifecycle state passed to on_deactivate, on_shutdown and on_error */
 static rclcpp_lifecycle::State active_state()
 {
   return rclcpp_lifecycle::State(
@@ -74,6 +79,7 @@ static rclcpp_lifecycle::State active_state()
 
 // ── on_init ───────────────────────────────────────────────────────────────────
 
+/** @brief on_init accepts valid I2C, mock and calibration parameters */
 TEST(InitTest, ValidParams)
 {
   auto init = [](hardware_interface::HardwareInfo info) {
@@ -93,6 +99,7 @@ TEST(InitTest, ValidParams)
   EXPECT_EQ(init(calib), CallbackReturn::SUCCESS);
 }
 
+/** @brief on_init accepts every supported sensor_mode */
 TEST(InitTest, ValidAllSensorModes)
 {
   for (const auto & mode : {"NDOF", "NDOF_FMC_OFF", "IMUPLUS"}) {
@@ -103,6 +110,7 @@ TEST(InitTest, ValidAllSensorModes)
   }
 }
 
+/** @brief on_init accepts axis_remap P0-P7 */
 TEST(InitTest, ValidAllAxisRemaps)
 {
   for (const auto & remap : {"P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"}) {
@@ -112,6 +120,7 @@ TEST(InitTest, ValidAllAxisRemaps)
   }
 }
 
+/** @brief on_init rejects invalid parameters and interface declarations */
 TEST(InitTest, InvalidParamsFail)
 {
   auto init = [](hardware_interface::HardwareInfo info) {
@@ -162,6 +171,7 @@ TEST(InitTest, InvalidParamsFail)
 
 // ── on_export_state_interfaces ───────────────────────────────────────────────────
 
+/** @brief The framework exports the 10 declared interfaces, initialized after configure */
 TEST(ExportStateInterfacesTest, InterfacesCorrect)
 {
   bno055_hardware_interface::BNO055HardwareInterface hw;
@@ -198,6 +208,7 @@ TEST(ExportStateInterfacesTest, InterfacesCorrect)
 
 // ── lifecycle + read (mock mode) ──────────────────────────────────────────────
 
+/** @brief Fixture: initialized hardware in mock mode with an optional set of exported handles */
 class MockHwTest : public ::testing::Test
 {
 protected:
@@ -227,6 +238,7 @@ protected:
   const rclcpp::Duration kPeriod{0, static_cast<int32_t>(10e6)};
 };
 
+/** @brief Configure, activate, deactivate and cleanup all succeed */
 TEST_F(MockHwTest, FullLifecycle)
 {
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
@@ -235,6 +247,7 @@ TEST_F(MockHwTest, FullLifecycle)
   EXPECT_EQ(hw_->on_cleanup(inactive_state()),       CallbackReturn::SUCCESS);
 }
 
+/** @brief A fresh instance configures after a previous cleanup */
 TEST_F(MockHwTest, ReconfigureAfterCleanup)
 {
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
@@ -247,6 +260,7 @@ TEST_F(MockHwTest, ReconfigureAfterCleanup)
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
 
+/** @brief The same instance can be reconfigured after cleanup */
 TEST_F(MockHwTest, SameObjectReconfigureCycle)
 {
   // ros2_control reuses the same plugin instance across lifecycle transitions.
@@ -259,6 +273,7 @@ TEST_F(MockHwTest, SameObjectReconfigureCycle)
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
 
+/** @brief Mock read yields a finite identity quaternion and zero motion */
 TEST_F(MockHwTest, ReadOutputsValid)
 {
   ifaces_ = hw_->on_export_state_interfaces();
@@ -284,6 +299,7 @@ TEST_F(MockHwTest, ReadOutputsValid)
   EXPECT_NEAR(std::sqrt(qw * qw + qx * qx + qy * qy + qz * qz), 1.0, 0.05);
 }
 
+/** @brief Repeated mock reads keep returning OK */
 TEST_F(MockHwTest, MultipleReadsRemainStable)
 {
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
@@ -293,6 +309,7 @@ TEST_F(MockHwTest, MultipleReadsRemainStable)
   }
 }
 
+/** @brief Cleanup resets all states to their initial values */
 TEST_F(MockHwTest, StateResetAfterCleanup)
 {
   // Fetch handles before configuring so they stay valid throughout.
@@ -316,12 +333,14 @@ TEST_F(MockHwTest, StateResetAfterCleanup)
   EXPECT_DOUBLE_EQ(get("linear_acceleration.z"), 0.0);
 }
 
+/** @brief Shutdown succeeds from the inactive state */
 TEST_F(MockHwTest, ShutdownFromInactive)
 {
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
   EXPECT_EQ(hw_->on_shutdown(inactive_state()),      CallbackReturn::SUCCESS);
 }
 
+/** @brief Shutdown succeeds from the active state */
 TEST_F(MockHwTest, ShutdownFromActive)
 {
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
@@ -329,6 +348,7 @@ TEST_F(MockHwTest, ShutdownFromActive)
   EXPECT_EQ(hw_->on_shutdown(active_state()),        CallbackReturn::SUCCESS);
 }
 
+/** @brief on_error resets states and lets the component be reconfigured */
 TEST_F(MockHwTest, OnErrorCleansUpAndAllowsRecovery)
 {
   // on_error() must close hardware and return SUCCESS (→ UNCONFIGURED) so that
@@ -352,6 +372,7 @@ TEST_F(MockHwTest, OnErrorCleansUpAndAllowsRecovery)
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
+/** @brief Run the gtest suite with rclcpp initialized */
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
