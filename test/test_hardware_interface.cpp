@@ -24,7 +24,7 @@ hardware_interface::HardwareInfo make_valid_imu_info(
   const std::string & i2c_addr = "28",
   const std::string & axis_remap = "P1")
 {
-  hardware_interface::HardwareInfo info;
+  hardware_interface::HardwareInfo info{};
   info.type = "sensor";
   info.hardware_parameters["i2c_bus"]    = std::to_string(i2c_bus);
   info.hardware_parameters["i2c_addr"]   = i2c_addr;
@@ -38,7 +38,7 @@ hardware_interface::HardwareInfo make_valid_imu_info(
     "angular_velocity.x", "angular_velocity.y", "angular_velocity.z",
     "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z"})
   {
-    hardware_interface::InterfaceInfo iface;
+    hardware_interface::InterfaceInfo iface{};
     iface.name = name;
     sensor.state_interfaces.push_back(iface);
   }
@@ -148,11 +148,16 @@ TEST(InitTest, InvalidParamsFail)
   // Unknown state interface name must be rejected
   auto bad_iface = make_valid_imu_info();
   bad_iface.sensors[0].state_interfaces.push_back([] {
-      hardware_interface::InterfaceInfo i;
+      hardware_interface::InterfaceInfo i{};
       i.name = "orientation.q";
       return i;
     }());
   EXPECT_EQ(init(bad_iface), CallbackReturn::ERROR);
+
+  // Non-double state interface types would throw on the first set_state(double)
+  auto bad_type = make_valid_imu_info();
+  bad_type.sensors[0].state_interfaces[0].data_type = "float32";
+  EXPECT_EQ(init(bad_type), CallbackReturn::ERROR);
 }
 
 // ── on_export_state_interfaces ───────────────────────────────────────────────────

@@ -193,6 +193,13 @@ hardware_interface::CallbackReturn BNO055HardwareInterface::on_init(
     "linear_acceleration.x", "linear_acceleration.y", "linear_acceleration.z",
   };
   for (const auto & si : info_.sensors[0].state_interfaces) {
+    // Values are written as double; any other handle type would throw in set_state().
+    if (si.data_type != "double") {
+      RCLCPP_ERROR(
+        logger_, "State interface '%s' has data_type '%s'; only 'double' is supported",
+        si.name.c_str(), si.data_type.c_str());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
     if (std::find(kExpected.begin(), kExpected.end(), si.name) == kExpected.end()) {
       RCLCPP_ERROR(
         logger_, "Unexpected state interface '%s'. Expected one of: "
