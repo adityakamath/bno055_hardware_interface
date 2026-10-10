@@ -6,8 +6,13 @@ on:
 
 jobs:
   lint:
-    name: clang-tidy
-    runs-on: ubuntu-24.04
+    name: clang-tidy (${{ matrix.ros_distro }})
+    strategy:
+      fail-fast: false
+      matrix:
+        ros_distro: [lyrical, kilted]
+    runs-on: ubuntu-latest
+    container: ros:${{ matrix.ros_distro }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -16,29 +21,21 @@ jobs:
 
       - name: Install clang-tidy
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 clang++-18 clang-tidy-18 libi2c-dev
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 100
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
-
-      - name: Setup ROS 2 Kilted
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: kilted
+          apt-get update
+          apt-get install -y clang clang-tidy libi2c-dev
 
       - name: Install ROS 2 dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            ros-kilted-diagnostic-msgs \
-            ros-kilted-geometry-msgs \
-            ros-kilted-hardware-interface \
-            ros-kilted-pluginlib \
-            ros-kilted-rclcpp \
-            ros-kilted-rclcpp-lifecycle \
-            ros-kilted-sensor-msgs \
-            ros-kilted-tf2-ros
+          apt-get update
+          apt-get install -y \
+            ros-${{ matrix.ros_distro }}-diagnostic-msgs \
+            ros-${{ matrix.ros_distro }}-geometry-msgs \
+            ros-${{ matrix.ros_distro }}-hardware-interface \
+            ros-${{ matrix.ros_distro }}-pluginlib \
+            ros-${{ matrix.ros_distro }}-rclcpp \
+            ros-${{ matrix.ros_distro }}-rclcpp-lifecycle \
+            ros-${{ matrix.ros_distro }}-sensor-msgs \
+            ros-${{ matrix.ros_distro }}-tf2-ros
 
       - name: Create workspace
         run: |
@@ -48,20 +45,20 @@ jobs:
       - name: Build with compile_commands.json
         shell: bash
         run: |
-          source /opt/ros/kilted/setup.bash
+          source /opt/ros/${{ matrix.ros_distro }}/setup.bash
           cd ~/ros2_ws
           colcon build \
             --packages-select bno055_hardware_interface \
             --cmake-args \
               -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
               -DCMAKE_BUILD_TYPE=Debug \
-              -DCMAKE_C_COMPILER=clang-18 \
-              -DCMAKE_CXX_COMPILER=clang++-18
+              -DCMAKE_C_COMPILER=clang \
+              -DCMAKE_CXX_COMPILER=clang++
 
       - name: Run clang-tidy
         shell: bash
         run: |
-          source /opt/ros/kilted/setup.bash
+          source /opt/ros/${{ matrix.ros_distro }}/setup.bash
           cd ~/ros2_ws/src/bno055_hardware_interface
 
           # Only our own code - external/BNO055_driver is Bosch's vendored driver and isn't
@@ -92,7 +89,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: clang-tidy-results
+          name: clang-tidy-results-${{ matrix.ros_distro }}
           path: ~/ros2_ws/src/bno055_hardware_interface/clang-tidy-results/
 
       - name: Comment PR with results
