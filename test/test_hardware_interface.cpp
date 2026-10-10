@@ -25,12 +25,14 @@ hardware_interface::HardwareInfo make_valid_imu_info(
   const std::string & axis_remap = "P1")
 {
   hardware_interface::HardwareInfo info;
+  info.type = "sensor";
   info.hardware_parameters["i2c_bus"]    = std::to_string(i2c_bus);
   info.hardware_parameters["i2c_addr"]   = i2c_addr;
   info.hardware_parameters["axis_remap"] = axis_remap;
 
   hardware_interface::ComponentInfo sensor;
   sensor.name = "bno055";
+  sensor.type = "sensor";
   for (const auto & name : {
     "orientation.x", "orientation.y", "orientation.z", "orientation.w",
     "angular_velocity.x", "angular_velocity.y", "angular_velocity.z",
@@ -42,6 +44,16 @@ hardware_interface::HardwareInfo make_valid_imu_info(
   }
   info.sensors.push_back(sensor);
   return info;
+}
+
+// Framework entry point: init() calls on_init() and creates the URDF-declared interface handles.
+static CallbackReturn init_hw(
+  bno055_hardware_interface::BNO055HardwareInterface & hw,
+  const hardware_interface::HardwareInfo & info)
+{
+  hardware_interface::HardwareComponentParams params;
+  params.hardware_info = info;
+  return hw.init(params);
 }
 
 static rclcpp_lifecycle::State unconfigured_state()
@@ -66,7 +78,7 @@ TEST(InitTest, ValidParams)
 {
   auto init = [](hardware_interface::HardwareInfo info) {
       bno055_hardware_interface::BNO055HardwareInterface hw;
-      return hw.on_init(info);
+      return init_hw(hw, info);
     };
 
   EXPECT_EQ(init(make_valid_imu_info()), CallbackReturn::SUCCESS);
@@ -87,7 +99,7 @@ TEST(InitTest, ValidAllSensorModes)
     bno055_hardware_interface::BNO055HardwareInterface hw;
     auto info = make_valid_imu_info();
     info.hardware_parameters["sensor_mode"] = mode;
-    EXPECT_EQ(hw.on_init(info), CallbackReturn::SUCCESS) << "sensor_mode=" << mode;
+    EXPECT_EQ(init_hw(hw, info), CallbackReturn::SUCCESS) << "sensor_mode=" << mode;
   }
 }
 
@@ -95,7 +107,7 @@ TEST(InitTest, ValidAllAxisRemaps)
 {
   for (const auto & remap : {"P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7"}) {
     bno055_hardware_interface::BNO055HardwareInterface hw;
-    EXPECT_EQ(hw.on_init(make_valid_imu_info(1, "28", remap)), CallbackReturn::SUCCESS)
+    EXPECT_EQ(init_hw(hw, make_valid_imu_info(1, "28", remap)), CallbackReturn::SUCCESS)
       << "axis_remap=" << remap;
   }
 }
@@ -104,7 +116,7 @@ TEST(InitTest, InvalidParamsFail)
 {
   auto init = [](hardware_interface::HardwareInfo info) {
       bno055_hardware_interface::BNO055HardwareInterface hw;
-      return hw.on_init(info);
+      return init_hw(hw, info);
     };
 
   auto no_sensor = make_valid_imu_info();
@@ -143,20 +155,22 @@ TEST(InitTest, InvalidParamsFail)
   EXPECT_EQ(init(bad_iface), CallbackReturn::ERROR);
 }
 
-// ── export_state_interfaces ───────────────────────────────────────────────────
+// ── on_export_state_interfaces ───────────────────────────────────────────────────
 
 TEST(ExportStateInterfacesTest, InterfacesCorrect)
 {
   bno055_hardware_interface::BNO055HardwareInterface hw;
-  ASSERT_EQ(hw.on_init(make_valid_imu_info()), CallbackReturn::SUCCESS);
-  auto ifaces = hw.export_state_interfaces();
+  auto info = make_valid_imu_info();
+  info.hardware_parameters["enable_mock_mode"] = "true";
+  ASSERT_EQ(init_hw(hw, info), CallbackReturn::SUCCESS);
+  auto ifaces = hw.on_export_state_interfaces();
 
   ASSERT_EQ(ifaces.size(), 10u);
 
   std::vector<std::string> names;
   for (const auto & iface : ifaces) {
-    EXPECT_EQ(iface.get_prefix_name(), "bno055");
-    names.push_back(iface.get_interface_name());
+    EXPECT_EQ(iface->get_prefix_name(), "bno055");
+    names.push_back(iface->get_interface_name());
   }
   for (const auto & expected : {
     "orientation.x", "orientation.y", "orientation.z", "orientation.w",
@@ -167,12 +181,13 @@ TEST(ExportStateInterfacesTest, InterfacesCorrect)
       << "Missing: " << expected;
   }
 
-  // Initial values: identity quaternion, all others 0
+  // After configure: identity quaternion, all others 0
+  ASSERT_EQ(hw.on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
   for (auto & iface : ifaces) {
     double val = std::numeric_limits<double>::quiet_NaN();
-    EXPECT_TRUE(iface.get_value(val, true));
-    const double expected = (iface.get_interface_name() == "orientation.w") ? 1.0 : 0.0;
-    EXPECT_DOUBLE_EQ(val, expected) << iface.get_interface_name();
+    EXPECT_TRUE(iface->get_value(val, true));
+    const double expected = (iface->get_interface_name() == "orientation.w") ? 1.0 : 0.0;
+    EXPECT_DOUBLE_EQ(val, expected) << iface->get_interface_name();
   }
 }
 
@@ -186,15 +201,15 @@ protected:
     hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
     auto info = make_valid_imu_info();
     info.hardware_parameters["enable_mock_mode"] = "true";
-    ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
+    ASSERT_EQ(init_hw(*hw_, info), CallbackReturn::SUCCESS);
   }
 
   double get(const std::string & name)
   {
     for (auto & iface : ifaces_) {
-      if (iface.get_interface_name() == name) {
+      if (iface->get_interface_name() == name) {
         double v = std::numeric_limits<double>::quiet_NaN();
-        (void)iface.get_value(v, true);
+        (void)iface->get_value(v, true);
         return v;
       }
     }
@@ -202,7 +217,7 @@ protected:
   }
 
   std::unique_ptr<bno055_hardware_interface::BNO055HardwareInterface> hw_;
-  std::vector<hardware_interface::StateInterface> ifaces_;
+  std::vector<hardware_interface::StateInterface::ConstSharedPtr> ifaces_;
   const rclcpp::Time     kTime{0, 0, RCL_ROS_TIME};
   const rclcpp::Duration kPeriod{0, static_cast<int32_t>(10e6)};
 };
@@ -223,7 +238,7 @@ TEST_F(MockHwTest, ReconfigureAfterCleanup)
   hw_ = std::make_unique<bno055_hardware_interface::BNO055HardwareInterface>();
   auto info = make_valid_imu_info();
   info.hardware_parameters["enable_mock_mode"] = "true";
-  ASSERT_EQ(hw_->on_init(info), CallbackReturn::SUCCESS);
+  ASSERT_EQ(init_hw(*hw_, info), CallbackReturn::SUCCESS);
   EXPECT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
 }
 
@@ -241,7 +256,7 @@ TEST_F(MockHwTest, SameObjectReconfigureCycle)
 
 TEST_F(MockHwTest, ReadOutputsValid)
 {
-  ifaces_ = hw_->export_state_interfaces();
+  ifaces_ = hw_->on_export_state_interfaces();
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
   ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
   ASSERT_EQ(hw_->read(kTime, kPeriod), return_type::OK);
@@ -253,9 +268,9 @@ TEST_F(MockHwTest, ReadOutputsValid)
   EXPECT_DOUBLE_EQ(get("orientation.z"), 0.0);
   for (auto & iface : ifaces_) {
     double v = std::numeric_limits<double>::quiet_NaN();
-    EXPECT_TRUE(iface.get_value(v, true));
-    EXPECT_FALSE(std::isnan(v)) << iface.get_interface_name();
-    EXPECT_TRUE(std::isfinite(v)) << iface.get_interface_name();
+    EXPECT_TRUE(iface->get_value(v, true));
+    EXPECT_FALSE(std::isnan(v)) << iface->get_interface_name();
+    EXPECT_TRUE(std::isfinite(v)) << iface->get_interface_name();
   }
 
   // Quaternion unit norm
@@ -275,8 +290,8 @@ TEST_F(MockHwTest, MultipleReadsRemainStable)
 
 TEST_F(MockHwTest, StateResetAfterCleanup)
 {
-  // Export interfaces before configuring so they stay valid throughout.
-  ifaces_ = hw_->export_state_interfaces();
+  // Fetch handles before configuring so they stay valid throughout.
+  ifaces_ = hw_->on_export_state_interfaces();
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
   ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
   ASSERT_EQ(hw_->read(kTime, kPeriod),               return_type::OK);
@@ -314,7 +329,7 @@ TEST_F(MockHwTest, OnErrorCleansUpAndAllowsRecovery)
   // on_error() must close hardware and return SUCCESS (→ UNCONFIGURED) so that
   // the controller manager can reconfigure without a process restart.
   // The base-class default returns ERROR (→ FINALIZED), leaking the I2C fd.
-  ifaces_ = hw_->export_state_interfaces();
+  ifaces_ = hw_->on_export_state_interfaces();
   ASSERT_EQ(hw_->on_configure(unconfigured_state()), CallbackReturn::SUCCESS);
   ASSERT_EQ(hw_->on_activate(inactive_state()),      CallbackReturn::SUCCESS);
 
