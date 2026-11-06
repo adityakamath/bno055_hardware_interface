@@ -1,14 +1,14 @@
 # BNO055 Hardware Interface
 
 ![Project Status](https://img.shields.io/badge/Status-Active-green)
-![ROS 2](https://img.shields.io/badge/ROS%202-Kilted%20(Ubuntu%2024.04)-blue?style=flat&logo=ros&logoSize=auto)
+![ROS 2](https://img.shields.io/badge/ROS%202-Kilted%20%7C%20Jazzy-blue?style=flat&logo=ros&logoSize=auto)
 ![C++](https://img.shields.io/badge/C++-17-blue?style=flat&logo=cplusplus&logoColor=white)
 [![CI](https://github.com/adityakamath/bno055_hardware_interface/actions/workflows/ci.yml/badge.svg)](https://github.com/adityakamath/bno055_hardware_interface/actions/workflows/ci.yml)
 ![License](https://img.shields.io/github/license/adityakamath/bno055_hardware_interface?label=License)
 
 `ros2_control` `SensorInterface` plugin for the Bosch BNO055 9-DOF IMU over I2C (Linux `i2c-dev`).
 
-**⚠️ Status:** Tested and validated on Raspberry Pi 5 running ROS 2 Kilted (Ubuntu 24.04, aarch64) with real BNO055 hardware.
+**Status:** Tested and validated on a Raspberry Pi 5 running ROS 2 Kilted (Ubuntu 24.04, aarch64) with real BNO055 hardware. CI also builds and tests it on Jazzy and Lyrical.
 
 ## Features
 
