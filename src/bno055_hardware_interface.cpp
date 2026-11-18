@@ -457,20 +457,21 @@ hardware_interface::return_type BNO055HardwareInterface::read(
     return hardware_interface::return_type::OK;
   }
 
-  // Orientation — raw quaternion (s16 values, scale = 1/2^14)
-  bno055_quaternion_t quat;
-  // Angular velocity — raw s16 counts; unit was set to RPS in on_configure
-  bno055_gyro_t gyro;
-  // Linear acceleration — raw s16 counts; unit was set to m/s² in on_configure
-  bno055_linear_accel_t lin_accel;
-
-  // Use raw read functions + manual scaling to avoid the convert_double variants,
-  // which re-read the unit register on every call and may trigger a CONFIG mode
-  // switch if the register is ever corrupted (stalling fusion for 19+ ms).
-  bool ok =
-    (bno055_read_quaternion_wxyz(&quat) == BNO055_SUCCESS) &&
-    (bno055_read_gyro_xyz(&gyro) == BNO055_SUCCESS) &&
-    (bno055_read_linear_accel_xyz(&lin_accel) == BNO055_SUCCESS);
+  // One burst from gyro (0x14) through linear accel (0x2D): 26 bytes in a single I2C transaction instead of
+  // three, and all values come from the same fusion cycle. Layout: gyro xyz, euler hrp (unused), quaternion
+  // wxyz, linear accel xyz, each s16 little-endian. Raw counts are scaled manually, as the Bosch convert_double
+  // variants re-read the unit register on every call and may trigger a CONFIG mode switch if it is corrupted
+  // (stalling fusion for 19+ ms). Units were set to rad/s and m/s^2 in on_configure.
+  constexpr size_t kBurstLen = BNO055_LINEAR_ACCEL_DATA_Z_MSB_ADDR - BNO055_GYRO_DATA_X_LSB_ADDR + 1;
+  u8 raw[kBurstLen];
+  const bool ok =
+    sensor_.bus_read(sensor_.dev_addr, BNO055_GYRO_DATA_X_LSB_ADDR, raw, kBurstLen) == 0;
+  auto s16 = [&raw](size_t offset) {
+      return static_cast<int16_t>(static_cast<uint16_t>(raw[offset] | (raw[offset + 1] << 8)));
+    };
+  constexpr size_t kGyro = 0;
+  constexpr size_t kQuat = BNO055_QUATERNION_DATA_W_LSB_ADDR - BNO055_GYRO_DATA_X_LSB_ADDR;
+  constexpr size_t kAccel = BNO055_LINEAR_ACCEL_DATA_X_LSB_ADDR - BNO055_GYRO_DATA_X_LSB_ADDR;
 
   if (!ok) {
     ++consecutive_read_errors_;
@@ -487,10 +488,10 @@ hardware_interface::return_type BNO055HardwareInterface::read(
   consecutive_read_errors_ = 0;
 
   // Normalize quaternion (raw values scale to unit quaternion via QUATERNION_SCALE)
-  const double qw = quat.w * QUATERNION_SCALE;
-  const double qx = quat.x * QUATERNION_SCALE;
-  const double qy = quat.y * QUATERNION_SCALE;
-  const double qz = quat.z * QUATERNION_SCALE;
+  const double qw = s16(kQuat) * QUATERNION_SCALE;
+  const double qx = s16(kQuat + 2) * QUATERNION_SCALE;
+  const double qy = s16(kQuat + 4) * QUATERNION_SCALE;
+  const double qz = s16(kQuat + 6) * QUATERNION_SCALE;
   const double norm = std::sqrt(qw * qw + qx * qx + qy * qy + qz * qz);
   if (norm > 1e-6) {
     set_value(ORIENTATION_W, qw / norm);
@@ -499,13 +500,13 @@ hardware_interface::return_type BNO055HardwareInterface::read(
     set_value(ORIENTATION_Z, qz / norm);
   }
 
-  set_value(ANGULAR_VELOCITY_X, gyro.x / BNO055_GYRO_DIV_RPS);
-  set_value(ANGULAR_VELOCITY_Y, gyro.y / BNO055_GYRO_DIV_RPS);
-  set_value(ANGULAR_VELOCITY_Z, gyro.z / BNO055_GYRO_DIV_RPS);
+  set_value(ANGULAR_VELOCITY_X, s16(kGyro + 0) / BNO055_GYRO_DIV_RPS);
+  set_value(ANGULAR_VELOCITY_Y, s16(kGyro + 2) / BNO055_GYRO_DIV_RPS);
+  set_value(ANGULAR_VELOCITY_Z, s16(kGyro + 4) / BNO055_GYRO_DIV_RPS);
 
-  set_value(LINEAR_ACCELERATION_X, lin_accel.x / BNO055_LINEAR_ACCEL_DIV_MSQ);
-  set_value(LINEAR_ACCELERATION_Y, lin_accel.y / BNO055_LINEAR_ACCEL_DIV_MSQ);
-  set_value(LINEAR_ACCELERATION_Z, lin_accel.z / BNO055_LINEAR_ACCEL_DIV_MSQ);
+  set_value(LINEAR_ACCELERATION_X, s16(kAccel + 0) / BNO055_LINEAR_ACCEL_DIV_MSQ);
+  set_value(LINEAR_ACCELERATION_Y, s16(kAccel + 2) / BNO055_LINEAR_ACCEL_DIV_MSQ);
+  set_value(LINEAR_ACCELERATION_Z, s16(kAccel + 4) / BNO055_LINEAR_ACCEL_DIV_MSQ);
 
   return hardware_interface::return_type::OK;
 }

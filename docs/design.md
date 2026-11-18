@@ -92,7 +92,7 @@ Called by ros2_control when `read()` returns `ERROR` (after 10 consecutive failu
 Called at the controller update rate (100 Hz per `imu_broadcaster.yaml`):
 
 - **Mock mode**: state vector stays at initial values (0.0 for velocity/acceleration, identity quaternion w=1.0)
-- **Real hardware**: calls `bno055_read_quaternion_wxyz()` (raw int16 quaternion, scaled by `1/16384`), `bno055_convert_double_gyro_xyz_rps()` (returns rad/s directly), and `bno055_convert_double_linear_accel_xyz_msq()` (returns m/s² directly); writes results to state interface doubles
+- **Real hardware**: one 26-byte burst read from the gyro data registers (0x14) through the linear-acceleration registers (0x2D), a single I2C transaction instead of three; the layout is gyro xyz, Euler angles (unused), quaternion wxyz, linear acceleration xyz, each int16 little-endian. The quaternion is scaled by `1/16384` and normalized; gyro and linear acceleration are divided by the unit divisors (`BNO055_GYRO_DIV_RPS`, `BNO055_LINEAR_ACCEL_DIV_MSQ`, units were set in `on_configure`) rather than the Bosch `convert_double` calls, which re-read the unit register on every call. All values in one read come from the same fusion cycle. Results are written to the state interface doubles
 
 ---
 
