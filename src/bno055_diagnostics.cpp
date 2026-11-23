@@ -158,7 +158,7 @@ public:
         device.c_str(), i2c_addr_, sensor_mode_.c_str());
     }
 
-    pub_ = create_publisher<DiagnosticArray>("/diagnostics", rclcpp::SystemDefaultsQoS());
+    pub_ = create_publisher<DiagnosticArray>("diagnostics", rclcpp::SystemDefaultsQoS());
     using namespace std::chrono_literals;
     timer_ = create_wall_timer(1s, [this]() { publish(); });
   }
