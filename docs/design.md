@@ -310,7 +310,7 @@ The broadcaster reads all 10 state interfaces from the sensor named `bno055` and
 
 ## Diagnostics Node
 
-An optional companion node (`src/bno055_diagnostics.cpp`) publishes BNO055 sensor health to `/diagnostics` at 1 Hz as a `diagnostic_msgs/DiagnosticArray`. It is purely a monitoring aid — sensor data and (optional) TF are unaffected if it is not running. Enabled by default for convenience; disable with `publish_diagnostics:=false`.
+An optional companion node (`src/bno055_diagnostics.cpp`) publishes BNO055 sensor health to `diagnostics` (`/diagnostics` without a namespace) at 1 Hz as a `diagnostic_msgs/DiagnosticArray`. It is purely a monitoring aid — sensor data and (optional) TF are unaffected if it is not running. Enabled by default for convenience; disable with `publish_diagnostics:=false`.
 
 The node opens its own I2C file descriptor independently of the hardware interface plugin. The Linux `i2c-dev` kernel driver serialises concurrent SMBus calls at the adapter level, so both can safely share the bus. The 1 Hz poll causes at most ~200 µs of bus contention per 10 ms control cycle — negligible.
 
