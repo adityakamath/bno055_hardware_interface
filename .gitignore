@@ -35,3 +35,6 @@ ament_index/
 
 # graphify
 graphify-out/
+
+# Local colcon opt-out (e.g. macOS builds)
+COLCON_IGNORE
